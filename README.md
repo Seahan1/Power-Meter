@@ -17,6 +17,22 @@ Supports configuration of serial parameters: baud rate, data bits, stop bits, pa
 Provides automatic serial port detection and connection status indication, supporting detection of multiple serial devices.
 Implements send and receive buffer management to prevent overflow.
 Supports disconnection reconnection and communication timeout detection, enhancing system robustness.
+**数据包定义 (Shared Header):**  
+C++  
+  
+```
+#pragma pack(push, 1) // 强制 1 字节对齐
+struct Packet {
+    uint8_t header[2]; // e.g., 0xAA, 0xBB
+    uint16_t current_raw; // ADC 原始值
+    uint16_t voltage_raw; 
+    uint8_t checksum;
+};
+#pragma pack(pop)
+
+```
+* **MCU 端：** DMA 搬运 ADC 数据到结构体 -> 直接 UART_Transmit((uint8_t*)&packet, sizeof(Packet))。  
+* **PC 端：** serial->read -> reinterpret_cast<Packet*>(buffer) -> 转换成 double。  
 ### Data Framing and Parsing
 Defines a custom communication protocol frame structure: including start flag, device ID, data length, data payload, checksum (e.g., CRC8 or XOR), and end marker.
 The lower-level device packages and transmits current sampling data in frames, each containing optional timestamp, sampled values (in floating-point or fixed-point format), and status flags.
