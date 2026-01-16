@@ -11,33 +11,32 @@ Power Supply Design: Employs an independent power module to provide stable volta
 Lower-Level Firmware (STM32G474): Configured using STM32CubeMX, with peripheral drivers developed using HAL or LL libraries.
 Upper-Level Application: Developed using Qt 5.15+ with C++ language, implementing a graphical user interface and data processing functions.
 ## Core Function Module Descriptions
-1. Serial Communication Management Module
+### Serial Communication Management Module
 Ensures stable communication between the upper-level and STM32G474.
 Supports configuration of serial parameters: baud rate, data bits, stop bits, parity, and flow control.
 Provides automatic serial port detection and connection status indication, supporting detection of multiple serial devices.
 Implements send and receive buffer management to prevent overflow.
 Supports disconnection reconnection and communication timeout detection, enhancing system robustness.
-2. Data Framing and Parsing
+### Data Framing and Parsing
 Defines a custom communication protocol frame structure: including start flag, device ID, data length, data payload, checksum (e.g., CRC8 or XOR), and end marker.
 The lower-level device packages and transmits current sampling data in frames, each containing optional timestamp, sampled values (in floating-point or fixed-point format), and status flags.
 The upper-level device performs checksum verification upon receiving complete frames; if verification fails, the frame is discarded and retransmission may be requested.
 Extracts valid data after parsing for subsequent processing, ensuring data integrity and correctness.
-3. Data Filtering and Smoothing
+### Data Filtering and Smoothing
 Adopts a multi-stage filtering strategy to enhance data stability:
 a. Hardware Level: An RC low-pass filter is added before the ADC to suppress high-frequency noise.
 b. Software Level:
-
 Uses sliding average filtering (e.g., window size of 10) to reduce random fluctuations.
 Applies median filtering for sudden signal changes to suppress pulse interference.
 Optionally includes Kalman filtering or first-order IIR filters to further optimize dynamic response and noise suppression.
 Supports selection and parameter adjustment of filtering algorithms, facilitating adaptation to different operating conditions.
-4. Waveform Plotting
+### Waveform Plotting
 Real-time plotting of current variation over time, supporting multi-channel display (e.g., single-channel current or simultaneous display of voltage and current).
 Chart supports zooming, panning, and scrolling through historical data.
 Allows setting time axis ranges (e.g., 1s, 10s, 1min) and displays sampling rate.
 Uses Qt Charts library for high-performance plotting, with real-time refresh rate recommended at ≥20Hz.
 Provides peak marking, peak/trough annotation, and threshold lines to assist in analyzing abnormal current behavior.
-5. CSV Export
+### CSV Export
 Supports exporting current or historical collected data to standard CSV file format.
 Exported content includes: timestamp, raw sampled values, filtered data, device ID, sampling frequency, etc.
 Users can customize export range (e.g., all data, last 10 seconds, user-defined start/end time).
