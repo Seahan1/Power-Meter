@@ -3,548 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProPower - 实验室专业版</title>
+    <title>ProPower - 实验室专业版 (Debug Mode)</title>
     <style>
         :root {
-            /* --- 亮色主题 (Light Theme) --- */
-            --bg-color: #f3f4f6;       /* 整体背景：浅灰 */
-            --panel-bg: #ffffff;       /* 面板背景：纯白 */
-            --text-main: #1f2937;      /* 主要文字：深灰 */
-            --text-muted: #6b7280;     /* 次要文字：中灰 */
-            --accent-color: #10b981;   /* 强调色：翠绿 */
-            --danger-color: #ef4444;   /* 警告色：红 */
-            --border-color: #e5e7eb;   /* 边框：极浅灰 */
+            --bg-color: #f3f4f6;
+            --panel-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --accent-color: #10b981;
+            --danger-color: #ef4444;
+            --border-color: #e5e7eb;
             
-            /* Waveform Colors (加深以便在白底显示) */
-            --color-v: #d97706; /* Voltage: 深金/橙色 */
-            --color-i: #2563eb; /* Current: 宝蓝 */
-            --color-p: #db2777; /* Power: 洋红 */
-            
-            /* Canvas specifics */
-            --canvas-bg: #ffffff;
-            --grid-line: #f0f0f0;
-            --grid-axis: #d1d5db;
+            /* 波形颜色 */
+            --color-v: #d97706; /* 橙色 */
+            --color-i: #2563eb; /* 蓝色 */
+            --color-p: #db2777; /* 洋红 */
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* --- Header --- */
+        /* --- 顶部栏 --- */
         header {
-            height: 60px;
-            background-color: var(--panel-bg);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            height: 50px; background-color: var(--panel-bg); border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
         }
+        .brand { font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .brand span { color: var(--accent-color); }
+        .status-badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #eee; color: #666; }
+        .status-badge.on { background: #d1fae5; color: #065f46; }
 
-        .brand {
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: var(--text-main);
-        }
+        /* --- 主布局 --- */
+        main { flex: 1; display: flex; overflow: hidden; }
 
-        .brand span {
-            color: var(--accent-color);
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            background: #f9fafb;
-            padding: 4px 12px;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
-        }
-
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #d1d5db;
-            transition: background-color 0.3s;
-        }
-        .dot.active { background-color: var(--accent-color); box-shadow: 0 0 4px var(--accent-color); }
-
-        /* --- Main Layout --- */
-        main {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        /* Left Control Panel */
+        /* --- 左侧边栏 (包含日志) --- */
         .sidebar {
-            width: 280px;
-            background-color: var(--panel-bg);
-            border-right: 1px solid var(--border-color);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            overflow-y: auto;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.02);
-            z-index: 5;
+            width: 300px; background-color: var(--panel-bg); border-right: 1px solid var(--border-color);
+            padding: 15px; display: flex; flex-direction: column; gap: 15px; z-index: 5;
         }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .control-group label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
-        .control-group label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* Buttons & Inputs */
         button {
-            background-color: #ffffff;
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            padding: 10px 16px;
-            border-radius: 6px;
-            cursor: pointer;
+            background: #fff; border: 1px solid var(--border-color); padding: 8px; border-radius: 6px;
+            cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px;
             transition: all 0.2s;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
+        button:hover { background: #f9fafb; border-color: #ccc; }
+        button.primary { background: var(--accent-color); color: #fff; border: none; }
+        button.primary:hover { background: #059669; }
+        button.danger { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+        select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); outline: none; }
 
-        button:hover {
-            background-color: #f9fafb;
-            border-color: #d1d5db;
+        /* 日志窗口样式 (新增) */
+        .log-container {
+            flex: 1; display: flex; flex-direction: column; min-height: 0; /* 允许 flex 子元素滚动 */
+            border: 1px solid #333; border-radius: 6px; background: #111;
         }
+        .log-header {
+            background: #222; color: #ccc; padding: 4px 8px; font-size: 11px; 
+            border-bottom: 1px solid #333; display: flex; justify-content: space-between;
+        }
+        .log-window {
+            flex: 1; overflow-y: auto; padding: 8px; 
+            font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; line-height: 1.4;
+            color: #aaa; white-space: pre-wrap;
+        }
+        /* 日志颜色 */
+        .log-rx { color: #aaa; }
+        .log-ok { color: #4ade80; } /* 解析成功 (绿) */
+        .log-err { color: #f87171; } /* 解析失败 (红) */
+        .log-info { color: #60a5fa; }
 
-        button:active {
-            transform: translateY(1px);
-            box-shadow: none;
-        }
+        /* --- 中间示波器 --- */
+        .scope-container { flex: 1; display: flex; flex-direction: column; position: relative; background: #fff; }
+        canvas { width: 100%; height: 100%; }
 
-        button.primary {
-            background-color: var(--accent-color);
-            color: #ffffff;
-            border: none;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
-        }
-        button.primary:hover { background-color: #059669; }
-        
-        button.danger {
-            background-color: #fee2e2;
-            color: #b91c1c;
-            border-color: #fecaca;
-        }
-        button.danger:hover { background-color: #fecaca; }
-
-        select {
-            background-color: #ffffff;
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            padding: 10px;
-            border-radius: 6px;
-            outline: none;
-            width: 100%;
-        }
-
-        /* Waveform Legend */
-        .legend-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            margin-bottom: 8px;
-            padding: 8px;
-            background: #f9fafb;
-            border-radius: 6px;
-        }
-        .legend-color { width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; }
-
-        /* Center Canvas Area */
-        .scope-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            background-color: var(--canvas-bg);
-        }
-
-        .scope-header {
-            height: 40px;
-            background: rgba(255, 255, 255, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 10;
-            border-bottom: 1px solid var(--border-color);
-            backdrop-filter: blur(4px);
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            cursor: crosshair;
-        }
-
-        /* Timeline / Playback Controls */
-        .playback-bar {
-            height: 60px;
-            background-color: var(--panel-bg);
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            gap: 20px;
-            z-index: 5;
-        }
-
-        .playback-controls {
-            display: flex;
-            gap: 8px;
-        }
-
-        .slider-container {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        input[type=range] {
-            flex: 1;
-            -webkit-appearance: none;
-            background: transparent;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: var(--accent-color);
-            cursor: pointer;
-            margin-top: -6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            border: 2px solid white;
-        }
-
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #e5e7eb;
-            border-radius: 2px;
-        }
-
-        /* Right Dashboard */
+        /* --- 右侧仪表盘 --- */
         .dashboard {
-            width: 260px;
-            background-color: var(--panel-bg);
-            border-left: 1px solid var(--border-color);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            box-shadow: -2px 0 5px rgba(0,0,0,0.02);
-            z-index: 5;
+            width: 220px; background: var(--panel-bg); border-left: 1px solid var(--border-color);
+            padding: 20px; display: flex; flex-direction: column; gap: 15px;
         }
-
         .meter-card {
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-            transition: transform 0.2s, box-shadow 0.2s;
+            background: #fff; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
+        .meter-label { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+        .meter-val { font-size: 24px; font-weight: 600; font-family: 'Segoe UI', sans-serif; color: var(--text-main); }
+        .meter-unit { font-size: 12px; color: var(--text-muted); float: right; margin-top: 10px; }
 
-        .meter-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
-
-        .meter-label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            font-weight: 600;
-        }
-
-        .meter-value {
-            font-size: 1.8rem;
-            font-weight: 600;
-            font-family: 'Segoe UI', sans-serif; /* 改回非等宽字体看起来更现代，或者保持 monospace */
-            margin-bottom: 12px;
-            color: var(--text-main);
-            letter-spacing: -0.5px;
-        }
-
-        .meter-unit { font-size: 0.9rem; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
-
-        .progress-bg {
-            height: 6px;
-            background: #f3f4f6;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            border-radius: 3px;
-            transition: width 0.1s linear;
-        }
-
-        /* Toast Notification */
-        .toast-container {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 100;
-        }
-
-        .toast {
-            background: #ffffff;
-            border-left: 4px solid var(--accent-color);
-            padding: 12px 20px;
-            border-radius: 6px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            color: var(--text-main);
-            font-size: 0.9rem;
-            animation: slideIn 0.3s ease-out;
-            display: flex;
-            align-items: center;
-            min-width: 250px;
-            border: 1px solid #f0f0f0;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        .hidden { display: none !important; }
-
+        /* Toast */
+        .toast-box { position: fixed; top: 60px; right: 20px; z-index: 99; }
+        .toast { background: #fff; border-left: 4px solid var(--accent-color); padding: 10px 15px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-size: 13px; animation: slideIn 0.3s; }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
     </style>
 </head>
 <body>
 
 <header>
     <div class="brand">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-color)"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        ProPower<span>Analyzer</span>
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="color:var(--accent-color)"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        ProPower <span>Lab</span>
     </div>
-    <div class="status-indicator">
-        <div id="status-dot" class="dot"></div>
-        <span id="status-text">设备未连接</span>
-    </div>
+    <div class="status-badge" id="conn-status">未连接</div>
 </header>
 
 <main>
     <aside class="sidebar">
         <div class="control-group">
-            <label>Serial Connection</label>
-            <select id="baud-rate">
-                <option value="9600">9600</option>
-                <option value="19200">19200</option>
-                <option value="38400">38400</option>
-                <option value="115200" selected>115200</option>
-                <option value="921600">921600</option>
-            </select>
-            <button id="btn-connect" class="primary">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-                连接 STM32
-            </button>
-        </div>
-
-        <div class="control-group">
-            <label>Channels</label>
-            <div class="legend-item">
-                <div style="display:flex; align-items:center;">
-                    <div class="legend-color" style="background:var(--color-v);"></div> 电压 (Voltage)
-                </div>
-                <input type="checkbox" checked id="toggle-v">
-            </div>
-            <div class="legend-item">
-                <div style="display:flex; align-items:center;">
-                    <div class="legend-color" style="background:var(--color-i);"></div> 电流 (Current)
-                </div>
-                <input type="checkbox" checked id="toggle-i">
-            </div>
-            <div class="legend-item">
-                <div style="display:flex; align-items:center;">
-                    <div class="legend-color" style="background:var(--color-p);"></div> 功率 (Power)
-                </div>
-                <input type="checkbox" checked id="toggle-p">
+            <label>Serial Config</label>
+            <div style="display:flex; gap:5px;">
+                <select id="baud-rate" style="flex:1">
+                    <option value="115200" selected>115200</option>
+                    <option value="9600">9600</option>
+                </select>
+                <button id="btn-connect" class="primary" style="flex:1.5">连接</button>
             </div>
         </div>
 
         <div class="control-group">
-            <label>Tools</label>
-            <button id="btn-screenshot">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                截图保存
-            </button>
-            <button id="btn-export">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                导出 CSV
-            </button>
-            <button id="btn-clear" style="margin-top:5px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                清空数据
-            </button>
+            <label>Display</label>
+            <div style="display:flex; gap:10px; font-size:12px;">
+                <label style="color:var(--color-v)"><input type="checkbox" checked id="chk-v"> 电压 V</label>
+                <label style="color:var(--color-i)"><input type="checkbox" checked id="chk-i"> 电流 I</label>
+                <label style="color:var(--color-p)"><input type="checkbox" checked id="chk-p"> 功率 P</label>
+            </div>
         </div>
         
-        <div class="control-group" style="margin-top:auto;">
-            <label>Status</label>
-            <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
-                <span id="log-status">等待数据...</span><br>
-                Buffer Usage: <span id="buffer-usage">0</span>%
+        <div class="control-group">
+            <label>Actions</label>
+            <div style="display:flex; gap:5px;">
+                <button onclick="exportCSV()" style="flex:1">导出CSV</button>
+                <button onclick="clearData()" style="flex:1">清空</button>
+            </div>
+        </div>
+
+        <div class="control-group" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+            <label>Serial Monitor (Debug)</label>
+            <div class="log-container">
+                <div class="log-header">
+                    <span>RX Data</span>
+                    <span style="cursor:pointer; color:#f87171;" onclick="document.getElementById('console').innerHTML=''">[Clear]</span>
+                </div>
+                <div id="console" class="log-window">
+                    <div class="log-info">等待连接...<br>请点击上方“连接”按钮。</div>
+                </div>
             </div>
         </div>
     </aside>
 
     <div class="scope-container" id="scope-wrapper">
-        <div class="scope-header">
-            <span id="time-scale-display">Time Scale: Auto</span>
-            <span>Live Data Stream</span>
-        </div>
         <canvas id="oscilloscope"></canvas>
-    </div>
-
-    <div class="playback-bar">
-        <div class="playback-controls">
-            <button id="btn-play-pause" title="暂停/继续刷新">
-                <svg id="icon-pause" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                <svg id="icon-play" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            </button>
-        </div>
-        <div class="slider-container">
-            <span style="font-size:0.8rem; color: var(--text-muted);">Waveform History</span>
-            <input type="range" id="timeline-slider" min="0" max="100" value="100">
+        <div style="position:absolute; top:10px; right:15px; font-size:11px; color:#999; background:rgba(255,255,255,0.8); padding:2px 6px; border-radius:4px;">
+            Scroll to Zoom X
         </div>
     </div>
 
     <aside class="dashboard">
         <div class="meter-card" style="border-left: 4px solid var(--color-v);">
-            <div class="meter-label">电压 Voltage <span style="color:var(--color-v)">●</span></div>
-            <div class="meter-value" id="val-v">--.--</div>
-            <div class="progress-bg">
-                <div class="progress-fill" id="bar-v" style="background-color: var(--color-v);"></div>
-            </div>
-            <div style="text-align:right; font-size:0.8rem; color:var(--text-muted); margin-top:5px;">V</div>
+            <div class="meter-label">VOLTAGE</div>
+            <span class="meter-val" id="val-v">--.--</span> <span class="meter-unit">V</span>
         </div>
-
         <div class="meter-card" style="border-left: 4px solid var(--color-i);">
-            <div class="meter-label">电流 Current <span style="color:var(--color-i)">●</span></div>
-            <div class="meter-value" id="val-i">--.--</div>
-            <div class="progress-bg">
-                <div class="progress-fill" id="bar-i" style="background-color: var(--color-i);"></div>
-            </div>
-            <div style="text-align:right; font-size:0.8rem; color:var(--text-muted); margin-top:5px;">mA</div>
+            <div class="meter-label">CURRENT</div>
+            <span class="meter-val" id="val-i">--.--</span> <span class="meter-unit">mA</span>
         </div>
-
         <div class="meter-card" style="border-left: 4px solid var(--color-p);">
-            <div class="meter-label">功率 Power <span style="color:var(--color-p)">●</span></div>
-            <div class="meter-value" id="val-p">--.--</div>
-            <div class="progress-bg">
-                <div class="progress-fill" id="bar-p" style="background-color: var(--color-p);"></div>
-            </div>
-            <div style="text-align:right; font-size:0.8rem; color:var(--text-muted); margin-top:5px;">mW</div>
+            <div class="meter-label">POWER</div>
+            <span class="meter-val" id="val-p">--.--</span> <span class="meter-unit">mW</span>
         </div>
     </aside>
 </main>
 
-<div class="toast-container" id="toast-container"></div>
+<div class="toast-box" id="toast-box"></div>
 
 <script>
-    /**
-     * 1. 全局变量与配置
-     */
-    const MAX_POINTS = 5000; // 缓冲区大小
-    let dataBuffer = [];     // 存储真实采集的数据
+    // --- 1. 核心变量 ---
+    const MAX_POINTS = 5000;
+    let dataBuffer = [];
+    let port, reader, keepReading = false;
+    let serialBuffer = "";
+    const textDecoder = new TextDecoder();
     
-    // 串口通信相关
-    let port, reader;
-    let keepReading = false;
-    let textDecoder = new TextDecoder();
-    let serialBuffer = "";   // 字符串拼接缓冲区
+    // 视图状态
+    let state = {
+        zoom: 5,        // X轴缩放
+        offset: 0,      // 偏移
+        vEnabled: true,
+        iEnabled: true,
+        pEnabled: true
+    };
 
-    /**
-     * 2. 串口通信逻辑 (替换掉了原来的 generateData)
-     */
-    async function connectSerial() {
-        if (!navigator.serial) {
-            alert("您的浏览器不支持 Web Serial API，请使用 Chrome 或 Edge。");
-            return;
-        }
-
+    // --- 2. 串口通信与解析 (最关键部分) ---
+    async function connect() {
+        if (!navigator.serial) return alert("请使用 Chrome/Edge 浏览器");
         try {
             port = await navigator.serial.requestPort();
-            const baud = parseInt(document.getElementById('baud-rate').value);
-            await port.open({ baudRate: baud });
+            await port.open({ baudRate: parseInt(document.getElementById('baud-rate').value) });
             
-            // 更新 UI 状态
-            updateConnectionUI(true);
+            toggleBtn(true);
+            log("串口已打开...", "log-info");
             keepReading = true;
             readLoop();
-            showToast('串口已连接', 'success');
-
-        } catch (err) {
-            console.error(err);
-            showToast('连接失败: ' + err, 'error');
-            updateConnectionUI(false);
+        } catch (e) {
+            log("连接失败: " + e, "log-err");
         }
     }
 
-    async function disconnectSerial() {
+    async function disconnect() {
         keepReading = false;
         if (reader) await reader.cancel();
         if (port) await port.close();
-        updateConnectionUI(false);
-        showToast('串口已断开', 'info');
+        toggleBtn(false);
+        log("串口已关闭", "log-info");
     }
 
     async function readLoop() {
@@ -555,350 +227,194 @@
                     const { value, done } = await reader.read();
                     if (done) break;
                     if (value) {
-                        const text = textDecoder.decode(value);
-                        processSerialData(text);
+                        const chunk = textDecoder.decode(value);
+                        processChunk(chunk);
                     }
                 }
-            } catch (error) {
-                console.error(error);
-                updateConnectionUI(false);
-            } finally {
-                reader.releaseLock();
-            }
+            } catch (e) { console.error(e); } 
+            finally { reader.releaseLock(); }
         }
     }
 
-    // 核心解析逻辑：从文本中提取 V, I, P
-    function processSerialData(chunk) {
+    function processChunk(chunk) {
         serialBuffer += chunk;
         const lines = serialBuffer.split(/\r?\n/);
-        serialBuffer = lines.pop(); // 保留未完整的最后一行
+        serialBuffer = lines.pop(); // 保留最后一行
 
         lines.forEach(line => {
-            if (line.length < 5) return;
-            
-            // 正则匹配: 兼容 "V=1.23 | I=100 | P=123" 或任意包含这些关键字的格式
-            // 不关心单位是 A 还是 mA，只提取数值
-            const vMatch = line.match(/V=\s*([\d\.]+)/);
-            const iMatch = line.match(/I=\s*([\d\.]+)/);
-            const pMatch = line.match(/P=\s*([\d\.]+)/);
+            if (line.length < 2) return; // 忽略空行
+
+            // --- 打印原始数据到日志窗口 ---
+            // 这样你就能看到 STM32 到底发了什么！
+            // log(line.trim(), "log-rx"); 
+
+            // --- 增强版正则匹配 ---
+            // 允许负数 ([-]?])，允许整数和小数 ([\d\.]+)
+            // 只要格式中有 V=数字，I=数字，P=数字 即可，忽略单位
+            const vMatch = line.match(/V=\s*([-]?[\d\.]+)/);
+            const iMatch = line.match(/I=\s*([-]?[\d\.]+)/);
+            const pMatch = line.match(/P=\s*([-]?[\d\.]+)/);
 
             if (vMatch || iMatch || pMatch) {
-                // 如果是暂停状态，不更新数据，但保持通信
-                if (!state.isPlaying) return;
+                // 如果能匹配到任意一个，就视为有效行
+                log(line.trim() + " [OK]", "log-ok"); // 标记为绿色
 
-                const newData = {
-                    t: Date.now(), // 使用当前时间戳
-                    v: vMatch ? parseFloat(vMatch[1]) : (dataBuffer.length > 0 ? dataBuffer[dataBuffer.length-1].v : 0),
-                    i: iMatch ? parseFloat(iMatch[1]) : (dataBuffer.length > 0 ? dataBuffer[dataBuffer.length-1].i : 0),
-                    p: pMatch ? parseFloat(pMatch[1]) : (dataBuffer.length > 0 ? dataBuffer[dataBuffer.length-1].p : 0)
-                };
-
-                // 推入缓冲区
-                dataBuffer.push(newData);
-                if (dataBuffer.length > MAX_POINTS) {
-                    dataBuffer.shift();
-                }
-
-                // 更新仪表盘（取最新值）
-                updateMeters(newData);
+                // 提取数值，如果没有匹配到则保持上一次的值 (防止归零)
+                const last = dataBuffer.length > 0 ? dataBuffer[dataBuffer.length-1] : {v:0, i:0, p:0};
                 
-                // 更新日志状态
-                document.getElementById('log-status').innerText = "Receiving Data...";
-                document.getElementById('log-status').style.color = "var(--accent-color)";
+                const v = vMatch ? parseFloat(vMatch[1]) : last.v;
+                const i = iMatch ? parseFloat(iMatch[1]) : last.i;
+                const p = pMatch ? parseFloat(pMatch[1]) : last.p;
+
+                addData(v, i, p);
+            } else {
+                // 如果完全匹配不到，标记为红色
+                log(line.trim() + " [格式错误]", "log-err"); 
             }
         });
-        
-        // 更新 Buffer 使用率
-        document.getElementById('buffer-usage').innerText = Math.round((dataBuffer.length / MAX_POINTS) * 100);
     }
 
-    function updateConnectionUI(connected) {
-        const btn = document.getElementById('btn-connect');
-        const dot = document.getElementById('status-dot');
-        const txt = document.getElementById('status-text');
-
-        if (connected) {
-            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg> 断开连接`;
-            btn.classList.add('danger');
-            btn.onclick = disconnectSerial;
-            dot.classList.add('active');
-            txt.innerText = "已连接设备";
-            txt.style.color = "var(--accent-color)";
-        } else {
-            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg> 连接 STM32`;
-            btn.classList.remove('danger');
-            btn.onclick = connectSerial;
-            dot.classList.remove('active');
-            txt.innerText = "设备未连接";
-            txt.style.color = "var(--text-muted)";
-            document.getElementById('log-status').innerText = "Waiting...";
-            document.getElementById('log-status').style.color = "var(--text-muted)";
-        }
+    // --- 3. 数据管理 ---
+    function addData(v, i, p) {
+        const point = { t: Date.now(), v, i, p };
+        dataBuffer.push(point);
+        if (dataBuffer.length > MAX_POINTS) dataBuffer.shift();
+        updateMeters(point);
     }
 
-    /**
-     * 3. 示波器渲染引擎 (适配亮色模式)
-     */
+    function updateMeters(d) {
+        document.getElementById('val-v').innerText = d.v.toFixed(3);
+        document.getElementById('val-i').innerText = d.i.toFixed(2);
+        document.getElementById('val-p').innerText = d.p.toFixed(2);
+    }
+
+    // --- 4. 绘图引擎 ---
     const canvas = document.getElementById('oscilloscope');
     const ctx = canvas.getContext('2d');
-    const container = document.getElementById('scope-wrapper');
-    
-    // 视图状态
-    let state = {
-        zoom: 5, // pixels per data point (可以理解为X轴缩放)
-        offsetX: 0, // 历史回放偏移量
-        isPlaying: true, // 控制画面是否滚动
-        visibleV: true,
-        visibleI: true,
-        visibleP: true
-    };
+    const wrapper = document.getElementById('scope-wrapper');
 
-    function resizeCanvas() {
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
+    function resize() {
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
         draw();
     }
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('resize', resize);
 
     function draw() {
         const w = canvas.width;
         const h = canvas.height;
-        const padding = 60; // 右侧留白
-        
-        // 1. 绘制背景 (纯白)
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim();
+        ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, w, h);
 
-        // 2. 绘制网格
+        // 绘制网格
+        ctx.strokeStyle = "#f0f0f0";
         ctx.lineWidth = 1;
-        const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim();
-        const axisColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-axis').trim();
+        for (let x=w; x>0; x-=50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+        for (let y=h; y>0; y-=50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
 
-        ctx.strokeStyle = gridColor;
-        
-        const gridSizeX = 50;
-        const gridSizeY = 50;
-
-        // 垂直网格 (随数据滚动)
-        // const gridOffsetX = (state.offsetX * state.zoom) % gridSizeX; 
-        // 简化处理：固定网格
-        for (let x = w; x > 0; x -= gridSizeX) {
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-        }
-        // 水平网格
-        for (let y = h; y > 0; y -= gridSizeY) {
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-        }
-
-        // 3. 绘制波形
         if (dataBuffer.length < 2) return;
 
-        // 定义自动缩放范围 (或固定范围)
-        // 假设：电压 0-5V，电流 0-1000mA，功率 0-5000mW
-        // 为了显示负值，我们将0点设在 Canvas 下方 10% 处，或者中间
-        // 既然测的是直流偏多，设在下 10% 比较好
-        const zeroY = h - 30; 
-        
-        // 缩放系数 (Pixel per Unit)
-        // 例如：电压最大4V，要占 h 的 80%。 Scale = (h*0.8) / 4
-        const scaleV = (h * 0.8) / 4.0;    // 满量程 4V
-        const scaleI = (h * 0.8) / 500.0;  // 满量程 500mA
-        const scaleP = (h * 0.8) / 2000.0; // 满量程 2000mW
+        // 定义 Y 轴缩放 (让曲线好看一点)
+        // 假设 V范围 0-4V, I范围 0-500mA, P范围 0-2000mW
+        // 将零点设在下方 10%
+        const zeroY = h * 0.9;
+        const rangeV = 4.0;
+        const rangeI = 100.0; // 如果你电流很小，把这个数字改小，波形就会变大！
+        const rangeP = 500.0; // 同上
 
-        function drawPath(key, cssVar, scale) {
-            if (!state[`visible${key}`]) return;
-            
-            const color = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
-            ctx.beginPath();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.lineJoin = 'round';
+        const scaleV = (h * 0.8) / rangeV;
+        const scaleI = (h * 0.8) / rangeI;
+        const scaleP = (h * 0.8) / rangeP;
 
-            // 从右向左绘制
-            const startX = w - padding; 
-            let firstPoint = true;
-            
-            // 优化步长
-            const step = Math.max(1, Math.floor(5 / state.zoom)); 
+        drawWave('v', state.vEnabled, '--color-v', scaleV, zeroY);
+        drawWave('i', state.iEnabled, '--color-i', scaleI, zeroY);
+        drawWave('p', state.pEnabled, '--color-p', scaleP, zeroY);
+    }
 
-            for (let i = dataBuffer.length - 1; i >= 0; i -= step) {
-                const indexFromRight = dataBuffer.length - 1 - i;
-                
-                // 计算 X 轴 (加入历史回放偏移)
-                const x = startX - (indexFromRight * state.zoom) + (state.offsetX * state.zoom);
-                
-                if (x < 0) break; // 超出左边界停止
-                if (x > w) continue; // 超出右边界(回放时)
+    function drawWave(key, enabled, colorVar, scale, zeroY) {
+        if (!enabled) return;
+        const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
 
-                const val = dataBuffer[i][key.toLowerCase()];
-                // Y = 零点 - (值 * 缩放)
-                const y = zeroY - (val * scale);
+        const endX = canvas.width;
+        let first = true;
 
-                if (firstPoint) {
-                    ctx.moveTo(x, y);
-                    firstPoint = false;
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-            ctx.stroke();
+        // 步进优化，避免绘制太多点
+        const step = Math.max(1, Math.floor(5 / state.zoom));
+
+        for (let i = dataBuffer.length - 1; i >= 0; i -= step) {
+            const idx = dataBuffer.length - 1 - i;
+            const x = endX - (idx * state.zoom);
+            if (x < 0) break;
+
+            const val = dataBuffer[i][key];
+            const y = zeroY - (val * scale);
+
+            if (first) { ctx.moveTo(x, y); first = false; }
+            else { ctx.lineTo(x, y); }
         }
-
-        // 绘制顺序 P -> I -> V
-        drawPath('P', '--color-p', scaleP);
-        drawPath('I', '--color-i', scaleI);
-        drawPath('V', '--color-v', scaleV);
-
-        // 绘制左侧标尺 (简单的)
-        ctx.fillStyle = axisColor;
-        ctx.fillRect(0, zeroY, w, 1); // 零线
-        ctx.fillStyle = '#999';
-        ctx.font = '10px Arial';
-        ctx.fillText("0", 5, zeroY - 2);
+        ctx.stroke();
     }
 
-    /**
-     * 4. 交互逻辑
-     */
-    
-    // 渲染循环
-    function loop() {
-        draw();
-        requestAnimationFrame(loop);
+    function loop() { draw(); requestAnimationFrame(loop); }
+    loop();
+    resize();
+
+    // --- 5. 交互与辅助 ---
+    function log(msg, cls) {
+        const box = document.getElementById('console');
+        const div = document.createElement('div');
+        div.className = cls || "";
+        div.innerText = msg;
+        box.appendChild(div);
+        if (box.childElementCount > 200) box.removeChild(box.firstChild); // 限制日志行数
+        box.scrollTop = box.scrollHeight;
     }
 
-    // 滚轮缩放 X 轴
-    canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const delta = Math.sign(e.deltaY) * -0.5;
-        state.zoom = Math.max(0.5, Math.min(50, state.zoom + delta));
-        
-        // 更新文字
-        document.getElementById('time-scale-display').textContent = `Zoom: x${state.zoom.toFixed(1)}`;
-    });
-
-    // 更新仪表盘数值
-    function updateMeters(data) {
-        document.getElementById('val-v').textContent = data.v.toFixed(3);
-        document.getElementById('val-i').textContent = data.i.toFixed(2);
-        document.getElementById('val-p').textContent = data.p.toFixed(2);
-
-        // 简单的进度条动画 (假设量程)
-        const maxV = 4.0; 
-        const maxI = 500.0; 
-        const maxP = 2000.0;
-
-        document.getElementById('bar-v').style.width = Math.min(100, (data.v/maxV)*100) + '%';
-        document.getElementById('bar-i').style.width = Math.min(100, (data.i/maxI)*100) + '%';
-        document.getElementById('bar-p').style.width = Math.min(100, (data.p/maxP)*100) + '%';
-    }
-
-    // 播放/暂停 (实际上是控制是否往 Buffer 里推新数据，或者控制是否自动滚动)
-    // 这里我们控制 state.isPlaying，在 processSerialData 里决定是否推数据
-    const btnPlayPause = document.getElementById('btn-play-pause');
-    const iconPlay = document.getElementById('icon-play');
-    const iconPause = document.getElementById('icon-pause');
-    const slider = document.getElementById('timeline-slider');
-
-    btnPlayPause.addEventListener('click', () => {
-        state.isPlaying = !state.isPlaying;
-        if (state.isPlaying) {
-            iconPlay.classList.add('hidden');
-            iconPause.classList.remove('hidden');
-            // 重置回放偏移
-            state.offsetX = 0;
-            slider.value = 100;
+    function toggleBtn(connected) {
+        const btn = document.getElementById('btn-connect');
+        const badge = document.getElementById('conn-status');
+        if (connected) {
+            btn.innerText = "断开";
+            btn.classList.add('danger');
+            btn.onclick = disconnect;
+            badge.innerText = "已连接";
+            badge.classList.add('on');
         } else {
-            iconPlay.classList.remove('hidden');
-            iconPause.classList.add('hidden');
+            btn.innerText = "连接";
+            btn.classList.remove('danger');
+            btn.onclick = connect;
+            badge.innerText = "未连接";
+            badge.classList.remove('on');
         }
+    }
+
+    // 复选框事件
+    ['v', 'i', 'p'].forEach(k => {
+        document.getElementById('chk-'+k).addEventListener('change', e => state[k+'Enabled'] = e.target.checked);
     });
 
-    // 历史回放滑块
-    slider.addEventListener('input', (e) => {
-        // 拖动滑块时自动暂停
-        if(state.isPlaying) btnPlayPause.click();
-        
-        const val = parseInt(e.target.value); // 0-100
-        // 100 是最新 (offset 0)
-        // 0 是最旧 (offset Max)
-        // 假设 Max Offset 是缓冲区能容纳的屏幕数
-        const maxOffset = (dataBuffer.length * state.zoom) / canvas.width * 200; 
-        
-        state.offsetX = ((100 - val) / 100) * (maxOffset || 1000);
-    });
-
-    // 通道开关
-    ['v', 'i', 'p'].forEach(key => {
-        document.getElementById(`toggle-${key}`).addEventListener('change', (e) => {
-            state[`visible${key.toUpperCase()}`] = e.target.checked;
-        });
-    });
-
-    // 清空数据
-    document.getElementById('btn-clear').addEventListener('click', () => {
-        dataBuffer = [];
-        updateMeters({v:0, i:0, p:0});
-        showToast('缓冲区已清空');
-    });
-
-    // 截图
-    document.getElementById('btn-screenshot').addEventListener('click', () => {
-        // 临时绘制白底图片
-        const link = document.createElement('a');
-        link.download = `PowerScope_${new Date().toISOString().slice(0,19)}.png`;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-        showToast('截图已下载', 'success');
+    // 鼠标滚轮缩放
+    canvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        state.zoom = Math.max(0.5, Math.min(50, state.zoom + (e.deltaY < 0 ? 1 : -1)));
     });
 
     // 导出CSV
-    document.getElementById('btn-export').addEventListener('click', () => {
-        if (dataBuffer.length === 0) {
-            showToast('没有数据可导出', 'error');
-            return;
-        }
-        let csvContent = "data:text/csv;charset=utf-8,Time(ms),Voltage(V),Current(mA),Power(mW)\n";
-        dataBuffer.forEach(row => {
-            csvContent += `${row.t},${row.v},${row.i},${row.p}\n`;
-        });
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "power_data.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast('CSV 导出成功', 'success');
-    });
-
-    function showToast(message, type = 'info') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        
-        let color = 'var(--accent-color)';
-        if (type === 'error') color = 'var(--danger-color)';
-        
-        toast.style.borderLeftColor = color;
-        toast.innerHTML = `<span>${message}</span>`;
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateX(100%)';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+    function exportCSV() {
+        let csv = "Time,Voltage(V),Current(mA),Power(mW)\n";
+        dataBuffer.forEach(d => csv += `${d.t},${d.v},${d.i},${d.p}\n`);
+        const a = document.createElement('a');
+        a.href = encodeURI("data:text/csv;charset=utf-8,"+csv);
+        a.download = "data.csv"; a.click();
     }
-
-    // 初始化
-    // 绑定初始点击事件
-    document.getElementById('btn-connect').onclick = connectSerial;
     
-    // 启动渲染
-    resizeCanvas();
-    loop();
-
+    function clearData() {
+        dataBuffer = [];
+        log("数据已清空", "log-info");
+    }
 </script>
 </body>
 </html>
