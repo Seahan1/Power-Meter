@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INA226 Power Monitor Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { 
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f1f5f9;
+            --text-sub: #94a3b8;
+            --accent-vol: #34d399; /* Green */
+            --accent-cur: #60a5fa; /* Blue */
+            --accent-pow: #f87171; /* Red */
+        }
+
+        body { 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 20px; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            box-sizing: border-box; 
+        }
+
+        /* 顶部导航栏 */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #334155;
+            margin-bottom: 20px;
+        }
+        
+        .brand { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+        .brand span { color: var(--accent-vol); }
+
+        .control-group { display: flex; gap: 10px; }
+        
+        button {
+            background: #334155;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        button:hover { background: #475569; transform: translateY(-1px); }
+        button.connect { background: var(--accent-vol); color: #064e3b; }
+        button.disconnect { background: var(--accent-pow); color: #450a0a; display: none; }
+
+        /* 仪表盘卡片 */
+        .grid-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #334155;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+        }
+        .card.vol::before { background: var(--accent-vol); }
+        .card.cur::before { background: var(--accent-cur); }
+        .card.pow::before { background: var(--accent-pow); }
+
+        .label { font-size: 13px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; }
+        .value { font-size: 32px; font-weight: 700; margin-top: 5px; font-family: 'Roboto Mono', monospace; }
+        .unit { font-size: 16px; color: var(--text-sub); margin-left: 5px; }
+
+        /* 图表区域 */
+        .main-content { flex: 1; display: flex; gap: 20px; min-height: 0; }
+        .chart-box { flex: 3; background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid #334155; position: relative; }
+        .log-box { flex: 1; background: #000000; border-radius: 12px; padding: 15px; border: 1px solid #334155; display: flex; flex-direction: column; }
+
+        #logWindow { 
+            flex: 1; overflow-y: auto; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px; color: #4ade80; 
+            line-height: 1.5;
+        }
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="brand">STM32 <span>INA226</span> Pro</div>
+        <div class="control-group">
+            <select id="baudRate" style="padding: 8px; border-radius: 6px; background: #1e293b; color: white; border: 1px solid #475569;">
+                <option value="115200" selected>115200</option>
+                <option value="921600">921600</option>
+            </select>
+            <button class="connect" id="btnConnect" onclick="connect()">连接设备</button>
+            <button class="disconnect" id="btnDisconnect" onclick="disconnect()">断开</button>
+            <button onclick="exportCSV()">导出 CSV</button>
+            <button onclick="clearData()">清空</button>
+        </div>
+    </div>
+
+    <div class="grid-stats">
+        <div class="card vol">
+            <div class="label">Bus Voltage</div>
+            <div class="value" style="color: var(--accent-vol)"><span id="valVol">0.000</span><span class="unit">V</span></div>
+        </div>
+        <div class="card cur">
+            <div class="label">Current</div>
+            <div class="value" style="color: var(--accent-cur)"><span id="valCur">0.0000</span><span class="unit">A</span></div>
+        </div>
+        <div class="card pow">
+            <div class="label">Power Consumption</div>
+            <div class="value" style="color: var(--accent-pow)"><span id="valPow">0.0000</span><span class="unit">W</span></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="chart-box">
+            <canvas id="mainChart"></canvas>
+        </div>
+        <div class="log-box">
+            <div style="color: #94a3b8; font-size: 12px; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">SERIAL MONITOR</div>
+            <div id="logWindow">Waiting for connection...</div>
+        </div>
+    </div>
+
+<script>
+    // --- 全局配置 ---
+    const MAX_POINTS = 300; // 图表保留的最大点数
+    let port, reader, keepReading = false;
+    let textDecoder = new TextDecoder();
+    let buffer = "";
+    let historyData = [];
+
+    // --- Chart.js 初始化 ---
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    
+    // 渐变填充效果
+    const gradientVol = ctx.createLinearGradient(0, 0, 0, 400);
+    gradientVol.addColorStop(0, 'rgba(52, 211, 153, 0.2)');
+    gradientVol.addColorStop(1, 'rgba(52, 211, 153, 0)');
+
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: '电压 (V)',
+                    data: [],
+                    borderColor: '#34d399', // Green
+                    backgroundColor: gradientVol,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.3, // 稍微平滑一点
+                    yAxisID: 'y_vol',
+                    fill: true
+                },
+                {
+                    label: '电流 (A)',
+                    data: [],
+                    borderColor: '#60a5fa', // Blue
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.3,
+                    yAxisID: 'y_cur'
+                },
+                {
+                    label: '功率 (W)',
+                    data: [],
+                    borderColor: '#f87171', // Red
+                    borderWidth: 2,
+                    borderDash: [5, 5], // 虚线
+                    pointRadius: 0,
+                    tension: 0.3,
+                    yAxisID: 'y_cur' // 功率和电流共用右轴 (通常量级接近)
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: '#94a3b8' } }
+            },
+            scales: {
+                x: { display: false },
+                y_vol: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Voltage (V)', color: '#34d399' },
+                    grid: { color: '#334155' },
+                    ticks: { color: '#94a3b8' },
+                    min: 0,
+                    suggestedMax: 5
+                },
+                y_cur: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Current (A) / Power (W)', color: '#60a5fa' },
+                    grid: { drawOnChartArea: false }, // 右侧不画网格线，防乱
+                    ticks: { color: '#94a3b8' },
+                    min: 0
+                }
+            }
+        }
+    });
+
+    // --- 数据处理逻辑 ---
+    function processText(chunk) {
+        buffer += chunk;
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop(); 
+
+        lines.forEach(line => {
+            if (!line.trim()) return;
+            logToScreen(line);
+
+            // 正则解析: "V=3.305 V | I=0.1052 A | P=0.3478 W"
+            // 兼容性正则，防止 P 字段没有发过来时出错
+            const regex = /V=([\d\.]+).*I=([\d\.]+).*(?:P=([\d\.]+))?/;
+            const match = line.match(regex);
+
+            if (match) {
+                const vol = parseFloat(match[1]);
+                const cur = parseFloat(match[2]);
+                // 如果 MCU 没发 P，我们就算一个 P = V*I
+                const pow = match[3] ? parseFloat(match[3]) : (vol * cur);
+
+                updateDashboard(vol, cur, pow);
+            }
+        });
+    }
+
+    function updateDashboard(vol, cur, pow) {
+        // 1. 更新数字卡片
+        document.getElementById('valVol').innerText = vol.toFixed(3);
+        document.getElementById('valCur').innerText = cur.toFixed(4);
+        document.getElementById('valPow').innerText = pow.toFixed(4);
+
+        // 2. 存入历史数据
+        const now = new Date().toISOString();
+        historyData.push({ time: now, v: vol, i: cur, p: pow });
+
+        // 3. 更新图表
+        if (chart.data.labels.length > MAX_POINTS) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[1].data.shift();
+            chart.data.datasets[2].data.shift();
+        }
+
+        chart.data.labels.push(now);
+        chart.data.datasets[0].data.push(vol);
+        chart.data.datasets[1].data.push(cur);
+        chart.data.datasets[2].data.push(pow);
+        
+        chart.update('none'); // 高性能模式更新
+    }
+
+    // --- 串口连接逻辑 ---
+    async function connect() {
+        if (!navigator.serial) return alert("Browser not supported (Use Chrome/Edge)");
+        try {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: parseInt(document.getElementById('baudRate').value) });
+            
+            document.getElementById('btnConnect').style.display = 'none';
+            document.getElementById('btnDisconnect').style.display = 'inline-block';
+            document.getElementById('logWindow').innerHTML = "Connected!\n";
+            
+            keepReading = true;
+            readLoop();
+        } catch (e) {
+            alert("Connect Error: " + e);
+        }
+    }
+
+    async function disconnect() {
+        keepReading = false;
+        if (reader) await reader.cancel();
+        if (port) await port.close();
+        document.getElementById('btnConnect').style.display = 'inline-block';
+        document.getElementById('btnDisconnect').style.display = 'none';
+    }
+
+    async function readLoop() {
+        while (port.readable && keepReading) {
+            reader = port.readable.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    if (value) processText(textDecoder.decode(value));
+                }
+            } catch (e) { console.error(e); } 
+            finally { reader.releaseLock(); }
+        }
+    }
+
+    // --- 工具函数 ---
+    function logToScreen(msg) {
+        const win = document.getElementById('logWindow');
+        // 限制日志长度防止网页卡顿
+        if (win.innerText.length > 5000) win.innerText = win.innerText.slice(-2000);
+        win.innerText += msg + "\n";
+        win.scrollTop = win.scrollHeight;
+    }
+
+    function clearData() {
+        historyData = [];
+        chart.data.labels = [];
+        chart.data.datasets.forEach(ds => ds.data = []);
+        chart.update();
+    }
+
+    function exportCSV() {
+        if (!historyData.length) return alert("No data");
+        let csv = "Time,Voltage(V),Current(A),Power(W)\n";
+        historyData.forEach(r => csv += `${r.time},${r.v},${r.i},${r.p}\n`);
+        const a = document.createElement("a");
+        a.href = "data:text/csv;charset=utf-8," + encodeURI(csv);
+        a.download = "power_data.csv";
+        a.click();
+    }
+</script>
+</body>
+</html>
