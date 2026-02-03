@@ -3,100 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProPower - 定制量程版</title>
+    <title>ProPower - 完整功能版</title>
     <style>
-        /* --- 深灰主题配置 --- */
+        /* --- 1. 深色主题配置 --- */
         :root {
-            --bg: #121212;          /* 背景极深灰 */
-            --panel: #1e1e1e;       /* 面板深灰 */
-            --border: #333333;      /* 边框色 */
-            --text: #e0e0e0;        /* 主文字 */
-            --accent: #00e676;      /* 强调色(绿) */
+            --bg: #121212;
+            --panel: #1e1e1e;
+            --border: #333;
+            --text: #e0e0e0;
+            --text-sub: #999;
+            --accent: #00e676; /* 绿色 */
             
-            /* 你的专属量程颜色 */
-            --col-v: #fdd835;       /* 电压: 黄色 */
-            --col-i: #00b0ff;       /* 电流: 亮蓝 */
-            --col-p: #ff4081;       /* 功率: 粉红 */
+            /* 通道颜色 */
+            --col-v: #fdd835; /* 黄 */
+            --col-i: #00b0ff; /* 蓝 */
+            --col-p: #ff4081; /* 粉 */
         }
 
         body {
-            background-color: var(--bg);
-            color: var(--text);
+            background-color: var(--bg); color: var(--text);
             font-family: 'Segoe UI', Consolas, monospace;
-            margin: 0; padding: 15px;
-            height: 100vh;
-            display: flex; flex-direction: column;
-            box-sizing: border-box;
+            margin: 0; padding: 10px; height: 100vh;
+            display: flex; flex-direction: column; box-sizing: border-box;
         }
 
-        /* 顶部栏 */
-        .header {
-            background: var(--panel);
-            padding: 12px 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 15px;
-        }
-
-        /* 按钮样式 (确保可点击) */
+        /* --- 通用组件 --- */
+        /* 按钮 */
         button {
-            padding: 8px 18px; border: none; border-radius: 4px;
-            cursor: pointer; font-weight: bold; font-size: 14px;
-            margin-left: 10px; transition: 0.2s;
+            padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer;
+            font-weight: bold; font-size: 13px; transition: 0.2s;
+            background: #333; color: #fff;
         }
-        .btn-con { background: var(--accent); color: #000; }
-        .btn-con:hover { background: #00c853; }
-        .btn-dis { background: #d32f2f; color: #fff; display: none; } /* 默认隐藏断开按钮 */
+        button:hover { background: #444; }
+        .btn-con { background: var(--accent) !important; color: #000 !important; }
+        .btn-con:hover { background: #00c853 !important; }
+        .btn-dis { background: #d32f2f !important; display: none; }
         
-        select {
-            padding: 8px; background: #2c2c2c; color: #fff;
-            border: 1px solid #444; border-radius: 4px; outline: none;
+        select { padding: 6px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; }
+
+        /* 滑动开关 (Switch) */
+        .switch-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #444; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(16px); }
+        /* 针对不同通道的颜色 */
+        input.sw-v:checked + .slider { background-color: var(--col-v); }
+        input.sw-i:checked + .slider { background-color: var(--col-i); }
+        input.sw-p:checked + .slider { background-color: var(--col-p); }
+
+        /* --- 布局 --- */
+        .header {
+            background: var(--panel); padding: 8px 15px; border-radius: 8px; border: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
         }
 
-        /* 主布局 */
-        .main-container {
-            flex: 1; display: flex; gap: 15px; overflow: hidden;
-        }
+        .main { flex: 1; display: flex; gap: 10px; overflow: hidden; }
 
-        /* 左侧示波器 */
-        .scope-box {
-            flex: 3; background: #000000;
-            border: 1px solid var(--border); border-radius: 8px;
-            position: relative;
-            display: flex; flex-direction: column;
+        /* 左侧：示波器区域 */
+        .scope-wrapper {
+            flex: 3; display: flex; flex-direction: column; gap: 0;
+            background: #000; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
         }
-        .scope-info {
-            position: absolute; top: 10px; left: 10px;
-            font-size: 12px; color: #666; pointer-events: none;
+        .scope-header {
+            padding: 5px 10px; background: #222; border-bottom: 1px solid #333;
+            font-size: 12px; color: #777; display: flex; justify-content: space-between;
         }
-        canvas { width: 100%; height: 100%; cursor: crosshair; }
+        .canvas-container { flex: 1; position: relative; overflow: hidden; }
+        canvas { width: 100%; height: 100%; cursor: crosshair; display: block; }
+        
+        /* 底部回放条 */
+        .playback-bar {
+            height: 40px; background: #1a1a1a; border-top: 1px solid #333;
+            display: flex; align-items: center; padding: 0 10px; gap: 10px;
+        }
+        input[type=range] { flex: 1; cursor: pointer; }
 
-        /* 右侧面板 */
+        /* 右侧：控制面板 */
         .side-panel {
-            flex: 1; min-width: 280px;
-            display: flex; flex-direction: column; gap: 15px;
+            flex: 1; min-width: 260px; max-width: 300px;
+            display: flex; flex-direction: column; gap: 10px;
         }
 
-        /* 仪表盘卡片 */
-        .card {
-            background: var(--panel); padding: 15px;
-            border-radius: 8px; border-left: 5px solid #555;
-            display: flex; flex-direction: column;
-        }
-        .card label { font-size: 12px; color: #888; margin-bottom: 5px; font-weight: bold; }
-        .card span { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
+        .card { background: var(--panel); padding: 12px; border-radius: 8px; border: 1px solid #333; }
+        .val-display { font-size: 24px; font-weight: bold; display: block; margin-top: 4px; letter-spacing: 1px; }
+        .val-label { font-size: 12px; color: #888; font-weight: bold; }
 
-        /* 日志窗口 */
         .log-box {
-            flex: 1; background: #000;
-            border: 1px solid var(--border); border-radius: 8px;
-            overflow-y: auto; padding: 10px;
-            font-size: 11px; line-height: 1.4; color: #aaa;
-            font-family: 'Courier New', monospace;
+            flex: 1; background: #000; border: 1px solid var(--border); border-radius: 8px;
+            overflow-y: auto; padding: 8px; font-size: 11px; font-family: 'Courier New', monospace;
+            color: #aaa; white-space: pre-wrap;
         }
-        .log-ok { color: var(--accent); }     /* 解析成功 */
-        .log-raw { color: #555; }             /* 原始数据 */
+        .log-ok { color: var(--accent); }
+        .log-err { color: #f44336; }
 
     </style>
 </head>
@@ -104,59 +111,98 @@
 
 <div class="header">
     <div style="font-size: 18px; font-weight: bold; display:flex; align-items:center; gap:10px;">
-        <span style="color:var(--accent)">⚡</span> ProPower Monitor
+        ProPower <span style="font-size:12px; background:#333; padding:2px 6px; border-radius:4px; color:#aaa;">V3.0</span>
     </div>
     <div>
         <select id="baud"><option value="115200">115200</option></select>
-        <button id="btn-connect" class="btn-con" onclick="connectSerial()">连接设备</button>
-        <button id="btn-disconnect" class="btn-dis" onclick="disconnectSerial()">断开连接</button>
+        <button id="btn-con" class="btn-con" onclick="connectSerial()">连接设备</button>
+        <button id="btn-dis" class="btn-dis" onclick="disconnectSerial()">断开连接</button>
     </div>
 </div>
 
-<div class="main-container">
-    <div class="scope-box" id="scope-wrapper">
-        <canvas id="chart"></canvas>
-        <div class="scope-info">
-            量程设定: <span style="color:var(--col-v)">0-3V</span> | 
-            <span style="color:var(--col-i)">0-200mA</span> | 
-            <span style="color:var(--col-p)">0-270mW</span>
+<div class="main">
+    <div class="scope-wrapper">
+        <div class="scope-header">
+            <span id="zoom-level">Zoom: 1x (Scroll to change)</span>
+            <span id="status-live" style="color:var(--accent)">● LIVE</span>
+        </div>
+        <div class="canvas-container">
+            <canvas id="chart"></canvas>
+            <div style="position:absolute; top:10px; left:10px; font-size:11px; color:#666; pointer-events:none;">
+                <div style="color:var(--col-v)">V: 0 - 3.5 V</div>
+                <div style="color:var(--col-i)">I: 0 - 500 mA</div>
+                <div style="color:var(--col-p)">P: 0 - 500 mW</div>
+            </div>
+        </div>
+        <div class="playback-bar">
+            <button id="btn-pause" onclick="togglePause()" style="width:60px;">暂停</button>
+            <span style="font-size:12px; color:#888;">历史</span>
+            <input type="range" id="history-slider" min="0" max="0" value="0" oninput="onSliderChange()">
+            <span style="font-size:12px; color:#888;">最新</span>
         </div>
     </div>
 
     <div class="side-panel">
-        <div class="card" style="border-color: var(--col-v);">
-            <label>VOLTAGE (电压)</label>
-            <span id="val-v" style="color: var(--col-v)">--.-- V</span>
+        <div class="card">
+            <div class="switch-group">
+                <span style="color:var(--col-v)">■ 电压 (Voltage)</span>
+                <label class="switch"><input type="checkbox" checked class="sw-v" onchange="state.showV=this.checked"><span class="slider"></span></label>
+            </div>
+            <div class="switch-group">
+                <span style="color:var(--col-i)">■ 电流 (Current)</span>
+                <label class="switch"><input type="checkbox" checked class="sw-i" onchange="state.showI=this.checked"><span class="slider"></span></label>
+            </div>
+            <div class="switch-group">
+                <span style="color:var(--col-p)">■ 功率 (Power)</span>
+                <label class="switch"><input type="checkbox" checked class="sw-p" onchange="state.showP=this.checked"><span class="slider"></span></label>
+            </div>
         </div>
-        <div class="card" style="border-color: var(--col-i);">
-            <label>CURRENT (电流)</label>
-            <span id="val-i" style="color: var(--col-i)">--.-- mA</span>
-        </div>
-        <div class="card" style="border-color: var(--col-p);">
-            <label>POWER (功率)</label>
-            <span id="val-p" style="color: var(--col-p)">--.-- mW</span>
+
+        <div class="card" style="padding:10px;">
+            <div style="margin-bottom:10px;">
+                <div class="val-label">VOLTAGE</div>
+                <span id="val-v" class="val-display" style="color:var(--col-v)">--.-- V</span>
+            </div>
+            <div style="margin-bottom:10px; border-top:1px solid #333; padding-top:5px;">
+                <div class="val-label">CURRENT</div>
+                <span id="val-i" class="val-display" style="color:var(--col-i)">--.-- mA</span>
+            </div>
+            <div style="border-top:1px solid #333; padding-top:5px;">
+                <div class="val-label">POWER</div>
+                <span id="val-p" class="val-display" style="color:var(--col-p)">--.-- mW</span>
+            </div>
         </div>
 
         <div class="log-box" id="log-window">
-            <div style="color:var(--accent)">> 系统就绪。请点击右上角“连接设备”。</div>
+            <div>系统就绪...</div>
         </div>
         
-        <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('log-window').innerHTML=''" style="flex:1; background:#333; color:#fff; margin:0;">清空日志</button>
-            <button onclick="dataBuffer=[];" style="flex:1; background:#333; color:#fff; margin:0;">清空波形</button>
+        <div style="display:flex; gap:5px;">
+            <button onclick="exportCSV()" style="flex:1;">导出 CSV</button>
+            <button onclick="clearAll()" style="flex:1; background:#444;">清空</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- 1. 全局配置 & 量程设定 (关键修改点) ---
-    // 根据你的要求设置最大量程，这决定了波形的高度
-    const RANGE_V = 3.5;    // 设为 3.5V，以便 3V 不会顶到头
-    const RANGE_I = 250.0;  // 设为 250mA，适配你的 10-200mA
-    const RANGE_P = 300.0;  // 设为 300mW，适配你的 30-270mW
+    // --- 1. 配置与状态 ---
+    const MAX_BUFFER = 10000; // 最大缓存点数 (可回放的长度)
+    
+    // 量程配置 (根据你的要求)
+    const RANGE_V = 3.5;    // 0-3.5V (适应3V)
+    const RANGE_I = 500.0;  // 0-500mA
+    const RANGE_P = 500.0;  // 0-500mW
 
-    const MAX_POINTS = 1000; // X轴保留点数
     let dataBuffer = [];
+    let state = {
+        zoom: 1,      // X轴缩放倍率 (像素/点)
+        offset: 0,    // 回放偏移 (0 = 最新)
+        paused: false,
+        showV: true,
+        showI: true,
+        showP: true
+    };
+
     let port, reader, keepReading = false;
     let serialBuffer = "";
     const textDecoder = new TextDecoder();
@@ -164,12 +210,13 @@
     // --- 2. 绘图引擎 (Canvas) ---
     const canvas = document.getElementById('chart');
     const ctx = canvas.getContext('2d');
-    const wrapper = document.getElementById('scope-wrapper');
+    const canvasContainer = document.querySelector('.canvas-container');
 
-    // 自动调整画布大小
+    // 响应式画布
     function resize() {
-        canvas.width = wrapper.clientWidth;
-        canvas.height = wrapper.clientHeight;
+        canvas.width = canvasContainer.clientWidth;
+        canvas.height = canvasContainer.clientHeight;
+        draw();
     }
     window.addEventListener('resize', resize);
     resize(); // 初始调用
@@ -178,100 +225,166 @@
         const w = canvas.width;
         const h = canvas.height;
         
-        // 清空背景
-        ctx.fillStyle = "#000000";
+        // 1. 清空 & 网格
+        ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, w, h);
-
-        // 画网格 (灰线)
+        
         ctx.strokeStyle = "#222";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        for(let x=w; x>0; x-=w/10) { ctx.moveTo(x,0); ctx.lineTo(x,h); } // 竖线
-        for(let y=h; y>0; y-=h/5)  { ctx.moveTo(0,y); ctx.lineTo(w,y); } // 横线
+        // 画简单的网格
+        for(let x=w; x>0; x-=50) { ctx.moveTo(x,0); ctx.lineTo(x,h); }
+        for(let y=h; y>0; y-=h/5) { ctx.moveTo(0,y); ctx.lineTo(w,y); }
         ctx.stroke();
 
-        // 如果没数据，直接返回
-        if(dataBuffer.length < 2) return;
+        if (dataBuffer.length < 2) return;
 
-        // --- 画线核心函数 ---
-        // 这里的 range 就是上面定义的 3.5, 250, 300
-        function plotLine(key, range, colorVar) {
+        // 2. 计算可视范围
+        // 从 offset 开始，画 w/zoom 个点
+        const totalPoints = dataBuffer.length;
+        // 如果未暂停且 offset 为 0，始终看最新的
+        // 实际上 offset 定义为：距离最新数据的点数
+        
+        // 绘制辅助函数
+        function plotChannel(key, range, colorVar) {
             const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
             ctx.beginPath();
             ctx.strokeStyle = color;
             ctx.lineWidth = 2;
 
-            // X轴步长
-            const stepX = w / MAX_POINTS; 
+            let first = true;
+            
+            // 从右向左遍历屏幕像素
+            // x = w -> 0
+            // 对应的数据索引 idx = (totalPoints - 1) - offset - (w - x) / zoom
+            
+            // 优化：按点遍历，计算 x 坐标
+            // 屏幕上能显示的点数
+            const pointsOnScreen = Math.ceil(w / state.zoom);
+            
+            // 数据起始索引 (最新的在右边)
+            // rightIdx 是屏幕最右侧对应的数据索引
+            const rightIdx = totalPoints - 1 - state.offset; 
+            
+            for (let i = 0; i < pointsOnScreen; i++) {
+                const idx = rightIdx - i;
+                if (idx < 0) break; // 数据没了
 
-            // 从右向左画
-            let isFirst = true;
-            for(let i = 0; i < dataBuffer.length; i++) {
-                // index 0 是最旧的数据(在左边)，length-1 是最新的(在右边)
-                // 我们想让最新的数据在最右边
-                // x = w - ( (bufferLen - 1 - i) * step )
-                const x = w - ((dataBuffer.length - 1 - i) * stepX);
+                const val = dataBuffer[idx][key];
                 
-                if (x < 0) continue; // 超出屏幕不画
-
-                const val = dataBuffer[i][key];
+                // 计算 X 坐标 (从右向左)
+                const x = w - (i * state.zoom);
                 
-                // Y轴坐标变换：值越大，Y坐标越小(向上)
-                // y = h - ( (val / range) * h )
+                // 计算 Y 坐标 (反转，0在下)
                 let y = h - ((val / range) * h);
-                
-                // 限制 y 不超出边界 (防穿模)
-                if (y < 0) y = 0;
-                if (y > h) y = h;
+                // 限制边界
+                if(y < 0) y = 0; if(y > h) y = h;
 
-                if(isFirst) { ctx.moveTo(x, y); isFirst = false; }
+                if (first) { ctx.moveTo(x, y); first = false; }
                 else { ctx.lineTo(x, y); }
             }
             ctx.stroke();
         }
 
-        // 分别画三条线
-        plotLine('p', RANGE_P, '--col-p'); // 功率
-        plotLine('i', RANGE_I, '--col-i'); // 电流
-        plotLine('v', RANGE_V, '--col-v'); // 电压
+        if(state.showP) plotChannel('p', RANGE_P, '--col-p');
+        if(state.showI) plotChannel('i', RANGE_I, '--col-i');
+        if(state.showV) plotChannel('v', RANGE_V, '--col-v');
     }
 
-    // 动画循环
-    function loop() {
-        draw();
-        requestAnimationFrame(loop);
-    }
-    loop();
-
-    // --- 3. 串口逻辑 (修复按钮点击) ---
+    // --- 3. 交互逻辑 (滚轮 & 滑块) ---
     
-    // 连接函数 - 直接被 onclick 调用
-    async function connectSerial() {
-        if (!navigator.serial) return alert("浏览器不支持串口，请用 Chrome/Edge");
+    // 滚轮缩放 X 轴
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = Math.sign(e.deltaY) * -0.5; // 向下滚缩小，向上滚放大
+        let newZoom = state.zoom + delta;
+        if (newZoom < 0.1) newZoom = 0.1;
+        if (newZoom > 20) newZoom = 20;
+        state.zoom = newZoom;
+        document.getElementById('zoom-level').innerText = `Zoom: ${state.zoom.toFixed(1)}x`;
+        draw();
+    });
 
+    // 暂停/继续
+    function togglePause() {
+        state.paused = !state.paused;
+        const btn = document.getElementById('btn-pause');
+        const status = document.getElementById('status-live');
+        
+        if (state.paused) {
+            btn.innerText = "继续";
+            btn.style.background = "var(--accent)";
+            btn.style.color = "#000";
+            status.innerText = "⏸ PAUSED";
+            status.style.color = "#888";
+        } else {
+            btn.innerText = "暂停";
+            btn.style.background = "#333";
+            btn.style.color = "#fff";
+            status.innerText = "● LIVE";
+            status.style.color = "var(--accent)";
+            // 取消暂停时，跳回最新
+            state.offset = 0;
+            updateSliderUI();
+        }
+    }
+
+    // 滑块回放
+    const slider = document.getElementById('history-slider');
+    function onSliderChange() {
+        const val = parseInt(slider.value); // val 越大越旧
+        // 滑块最左(0) = 最新，最右(max) = 最旧？
+        // 通常习惯：最右是最新。
+        // 所以我们反过来：slider value 0 = 最旧, max = 最新
+        // offset = max - value
+        const max = parseInt(slider.max);
+        state.offset = max - val;
+        
+        // 拖动滑块自动暂停，除非拖到最右边
+        if (state.offset > 0) {
+            if (!state.paused) togglePause();
+        } else {
+            if (state.paused) togglePause(); // 回到最右自动播放
+        }
+        draw();
+    }
+
+    function updateSliderUI() {
+        // 更新滑块范围
+        const total = dataBuffer.length;
+        slider.max = total > 0 ? total - 1 : 0;
+        // 如果正在 Live，滑块保持在最右侧
+        if (!state.paused && state.offset === 0) {
+            slider.value = slider.max;
+        } else {
+            // 否则保持 offset 对应的值
+            slider.value = parseInt(slider.max) - state.offset;
+        }
+    }
+
+    // --- 4. 串口与数据处理 ---
+    async function connectSerial() {
+        if (!navigator.serial) return alert("不支持 Web Serial");
         try {
             port = await navigator.serial.requestPort();
             await port.open({ baudRate: 115200 });
-
-            // UI 切换
-            document.getElementById('btn-connect').style.display = 'none';
-            document.getElementById('btn-disconnect').style.display = 'inline-block';
-            log(">>> 串口已连接", "#fff");
-
+            
+            document.getElementById('btn-con').style.display = 'none';
+            document.getElementById('btn-dis').style.display = 'inline-block';
+            log(">>> 串口已连接", "log-ok");
+            
             keepReading = true;
             readLoop();
-        } catch (err) {
-            log("连接错误: " + err, "red");
-        }
+            drawLoop(); // 开始动画帧
+        } catch (e) { alert(e); }
     }
 
     async function disconnectSerial() {
         keepReading = false;
-        if(reader) await reader.cancel();
-        if(port) await port.close();
-
-        document.getElementById('btn-connect').style.display = 'inline-block';
-        document.getElementById('btn-disconnect').style.display = 'none';
+        if (reader) await reader.cancel();
+        if (port) await port.close();
+        document.getElementById('btn-con').style.display = 'inline-block';
+        document.getElementById('btn-dis').style.display = 'none';
         log(">>> 串口已断开", "#fff");
     }
 
@@ -282,72 +395,94 @@
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    if (value) {
-                        processText(textDecoder.decode(value));
-                    }
+                    if (value) processText(textDecoder.decode(value));
                 }
-            } catch (error) {
-                console.error(error);
-            } finally {
-                reader.releaseLock();
-            }
+            } catch (e) { console.error(e); } 
+            finally { reader.releaseLock(); }
         }
     }
 
-    // --- 4. 数据解析 (Log正常说明这里收到了数据) ---
     function processText(chunk) {
         serialBuffer += chunk;
         const lines = serialBuffer.split(/\r?\n/);
-        serialBuffer = lines.pop(); // 保留未完结的行
+        serialBuffer = lines.pop();
 
+        let updated = false;
         lines.forEach(line => {
             if (line.trim().length < 2) return;
 
-            // 打印到 Log 证明收到了
-            // log(line.trim(), "log-raw");
-
-            // 正则提取 V, I, P
+            // 增强正则：支持 V=, I=, P=
             const vMatch = line.match(/V=\s*([-]?[\d\.]+)/);
             const iMatch = line.match(/I=\s*([-]?[\d\.]+)/);
             const pMatch = line.match(/P=\s*([-]?[\d\.]+)/);
 
             if (vMatch || iMatch || pMatch) {
-                log(line.trim(), "log-ok");
-
-                // 获取上一个值，防止闪烁
+                // 成功提取
                 const last = dataBuffer.length > 0 ? dataBuffer[dataBuffer.length-1] : {v:0, i:0, p:0};
-
+                
                 const v = vMatch ? parseFloat(vMatch[1]) : last.v;
                 const i = iMatch ? parseFloat(iMatch[1]) : last.i;
                 const p = pMatch ? parseFloat(pMatch[1]) : last.p;
 
-                // 更新 Buffer
                 dataBuffer.push({v, i, p});
-                if (dataBuffer.length > MAX_POINTS) dataBuffer.shift();
-
-                // 更新大数字显示
+                if (dataBuffer.length > MAX_BUFFER) dataBuffer.shift(); // 移除超出的旧数据
+                
+                // 更新实时数值面板
                 document.getElementById('val-v').innerText = v.toFixed(3) + " V";
                 document.getElementById('val-i').innerText = i.toFixed(2) + " mA";
                 document.getElementById('val-p').innerText = p.toFixed(2) + " mW";
+                
+                log(line.trim(), "log-ok");
+                updated = true;
             }
         });
+
+        if (updated) {
+            updateSliderUI();
+            // 如果没暂停，刷新画面
+            // draw() 会在 requestAnimationFrame 中调用，或者这里直接调用
+            // 为了流畅，我们在 readLoop 里只处理数据，另开 loop 画图
+        }
     }
 
-    // 辅助: 写日志
-    function log(msg, colorClass) {
-        const box = document.getElementById('log-window');
+    function drawLoop() {
+        if (keepReading) {
+            draw();
+            requestAnimationFrame(drawLoop);
+        }
+    }
+
+    // --- 5. 辅助功能 ---
+    function log(msg, cls) {
+        const win = document.getElementById('log-window');
         const div = document.createElement('div');
         div.innerText = msg;
-        if(colorClass) {
-            if(colorClass.startsWith("#")) div.style.color = colorClass;
-            else div.className = colorClass;
-        }
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
-        // 限制条数防止卡顿
-        if(box.childElementCount > 100) box.removeChild(box.firstChild);
+        div.className = cls;
+        win.appendChild(div);
+        if(win.childElementCount > 100) win.removeChild(win.firstChild);
+        win.scrollTop = win.scrollHeight;
     }
 
+    function clearAll() {
+        dataBuffer = [];
+        state.offset = 0;
+        updateSliderUI();
+        draw();
+        log("数据已清空", "#fff");
+    }
+
+    function exportCSV() {
+        let csv = "Time,Voltage(V),Current(mA),Power(mW)\n";
+        // 导出 Buffer 所有数据
+        dataBuffer.forEach((d, idx) => {
+            // 简单用索引当时间
+            csv += `${idx},${d.v},${d.i},${d.p}\n`;
+        });
+        const blob = new Blob([csv], {type: 'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'data.csv'; a.click();
+    }
 </script>
 </body>
 </html>
