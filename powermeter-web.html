@@ -2,299 +2,202 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STM32 INA226 功率监控系统</title>
+    <title>STM32 万能容错监控端</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { 
-            --bg: #121212; 
-            --panel: #1e1e1e; 
-            --text: #e0e0e0; 
-            --green: #00e676; 
-            --blue: #2979ff; 
-            --orange: #ff9100; 
-        }
-        body { font-family: 'Segoe UI', Consolas, monospace; background: var(--bg); color: var(--text); margin: 0; padding: 15px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        body { font-family: Consolas, monospace; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
         
-        /* 顶部栏 */
-        .header { background: var(--panel); padding: 12px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border: 1px solid #333; }
-        .controls { display: flex; gap: 10px; align-items: center; }
-        button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; font-size: 13px; }
-        .btn-con { background: var(--green); color: #000; }
-        .btn-con:hover { background: #00c853; }
-        .btn-stop { background: #d32f2f; display: none; }
-        .btn-csv { background: var(--blue); }
-        .btn-clear { background: #555; }
-        select { background: #333; color: white; border: 1px solid #555; padding: 6px; border-radius: 4px; }
-
-        /* 仪表盘 (显示大数字) */
-        .dashboard { display: flex; gap: 15px; margin-bottom: 15px; }
-        .card { flex: 1; background: var(--panel); padding: 15px; border-radius: 8px; border-left: 4px solid #555; display: flex; flex-direction: column; justify-content: center; }
-        .card.vol { border-color: var(--green); }
-        .card.cur { border-color: var(--blue); }
-        .card.pwr { border-color: var(--orange); } /* 新增功率卡片样式 */
-        .card-title { font-size: 12px; color: #888; margin-bottom: 5px; }
-        .card-value { font-size: 24px; font-weight: bold; font-family: 'Courier New', monospace; }
+        /* 顶部控制栏 */
+        .header { background: #1e1e1e; padding: 10px 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border: 1px solid #333; }
+        button { padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-left: 5px; }
+        .btn-green { background: #00e676; color: #000; }
+        .btn-red { background: #ff5252; color: #fff; display: none; }
+        .btn-blue { background: #2979ff; color: #fff; }
+        
+        /* 仪表盘 */
+        .dashboard { display: flex; gap: 10px; margin-bottom: 10px; }
+        .card { flex: 1; background: #1e1e1e; padding: 10px; border-radius: 8px; border-left: 5px solid #555; text-align: center; }
+        .card-val { font-size: 24px; font-weight: bold; display: block; margin-top: 5px; }
         
         /* 主区域 */
-        .main { display: flex; flex: 1; gap: 15px; min-height: 0; }
-        .chart-container { flex: 3; background: var(--panel); border-radius: 8px; padding: 10px; position: relative; border: 1px solid #333; }
-        .log-container { flex: 1; background: #000; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; border: 1px solid #333; }
+        .main { display: flex; flex: 1; gap: 10px; min-height: 0; }
+        .chart-box { flex: 3; background: #1e1e1e; border-radius: 8px; padding: 5px; position: relative; border: 1px solid #333; }
+        .log-box { flex: 1; background: #000; border-radius: 8px; border: 1px solid #333; overflow-y: auto; padding: 10px; font-size: 11px; white-space: pre-wrap; color: #aaa; }
         
-        #logWindow { flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 11px; color: #aaa; white-space: pre-wrap; }
-        .log-entry { border-bottom: 1px solid #222; padding: 2px 0; }
-        .log-ok { color: var(--green); }
+        .log-match { color: #00e676; } /* 匹配成功显示绿色 */
+        .log-fail { color: #ff5252; }  /* 匹配失败显示红色 */
     </style>
 </head>
 <body>
 
 <div class="header">
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <h2 style="margin: 0; font-size: 18px;">STM32 Power Monitor</h2>
-        <select id="baudRate">
-            <option value="115200" selected>115200</option>
-            <option value="9600">9600</option>
-        </select>
-    </div>
-    <div class="controls">
-        <button id="btnConnect" class="btn-con" onclick="connect()">连接设备</button>
-        <button id="btnDisconnect" class="btn-stop" onclick="disconnect()">断开连接</button>
-        <button class="btn-csv" onclick="exportCSV()">导出 CSV</button>
-        <button class="btn-clear" onclick="clearData()">清空</button>
+    <strong>STM32 Monitor (Universal Mode)</strong>
+    <div>
+        <select id="baud"><option value="115200">115200</option><option value="9600">9600</option></select>
+        <button class="btn-green" id="btnCon" onclick="connect()">连接</button>
+        <button class="btn-red" id="btnDis" onclick="disconnect()">断开</button>
+        <button class="btn-blue" onclick="exportCSV()">导出CSV</button>
     </div>
 </div>
 
 <div class="dashboard">
-    <div class="card vol">
-        <span class="card-title">VOLTAGE (电压)</span>
-        <span id="dispVol" class="card-value" style="color: var(--green)">--.--- V</span>
+    <div class="card" style="border-color: #00e676;">
+        <small>VOLTAGE</small>
+        <span id="valV" class="card-val" style="color:#00e676">--</span>
     </div>
-    <div class="card cur">
-        <span class="card-title">CURRENT (电流)</span>
-        <span id="dispCur" class="card-value" style="color: var(--blue)">--.---- A</span>
+    <div class="card" style="border-color: #2979ff;">
+        <small>CURRENT</small>
+        <span id="valI" class="card-val" style="color:#2979ff">--</span>
     </div>
-    <div class="card pwr">
-        <span class="card-title">POWER (功耗)</span>
-        <span id="dispPwr" class="card-value" style="color: var(--orange)">--.---- W</span>
+    <div class="card" style="border-color: #ff9100;">
+        <small>POWER</small>
+        <span id="valP" class="card-val" style="color:#ff9100">--</span>
     </div>
 </div>
 
 <div class="main">
-    <div class="chart-container">
-        <canvas id="myChart"></canvas>
-    </div>
-    <div class="log-container">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px;">
-            串口原始数据 (Raw Data)
-        </div>
-        <div id="logWindow"></div>
-    </div>
+    <div class="chart-box"><canvas id="chart"></canvas></div>
+    <div class="log-box" id="log">等待连接...<br>请点击“连接”按钮。<br>右侧会显示原始数据。</div>
 </div>
 
 <script>
-    // --- 全局变量 ---
-    let port, reader;
-    let keepReading = false;
-    let textDecoder = new TextDecoder();
-    let buffer = ""; 
+    let port, reader, keepReading = false;
     let historyData = [];
+    const textDecoder = new TextDecoder();
+    let buffer = "";
 
-    // --- Chart.js 配置 ---
-    const ctx = document.getElementById('myChart').getContext('2d');
-    const chart = new Chart(ctx, {
+    // 图表初始化
+    const chart = new Chart(document.getElementById('chart'), {
         type: 'line',
         data: {
             labels: [],
             datasets: [
-                {
-                    label: '电压 (V)',
-                    data: [],
-                    borderColor: '#00e676', // 绿
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0,
-                    yAxisID: 'y'
-                },
-                {
-                    label: '电流 (A)',
-                    data: [],
-                    borderColor: '#2979ff', // 蓝
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0,
-                    yAxisID: 'y1'
-                },
-                {
-                    label: '功耗 (W)', // 新增 Dataset
-                    data: [],
-                    borderColor: '#ff9100', // 橙
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0,
-                    yAxisID: 'y2' // 使用第三个轴
-                }
+                { label: 'V', data: [], borderColor: '#00e676', borderWidth: 2, tension: 0, pointRadius: 0, yAxisID: 'y' },
+                { label: 'I', data: [], borderColor: '#2979ff', borderWidth: 2, tension: 0, pointRadius: 0, yAxisID: 'y1' },
+                { label: 'P', data: [], borderColor: '#ff9100', borderWidth: 2, tension: 0, pointRadius: 0, yAxisID: 'y2' }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false, 
+            responsive: true, maintainAspectRatio: false, animation: false,
             scales: {
                 x: { display: false },
-                // 左轴：电压
-                y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    title: { display: true, text: 'Voltage (V)', color: '#00e676' },
-                    min: -0.1, 
-                    max: 4.0,
-                    grid: { color: '#333' }
-                },
-                // 右轴1：电流
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    title: { display: true, text: 'Current (A)', color: '#2979ff' },
-                    grid: { drawOnChartArea: false }
-                },
-                // 右轴2：功率 (隐藏网格，避免混乱)
-                y2: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    title: { display: true, text: 'Power (W)', color: '#ff9100' },
-                    grid: { drawOnChartArea: false },
-                    min: 0 // 功率通常不为负
-                }
+                y:  { type:'linear', display:true, position:'left', min:-0.5, max:4.0, grid:{color:'#333'} },
+                y1: { type:'linear', display:true, position:'right', min:-0.05, max:1.0, grid:{drawOnChartArea:false} },
+                y2: { type:'linear', display:false, position:'right', min:0, max:2.0 } // 功率轴隐藏刻度
             }
         }
     });
 
-    // --- 核心逻辑 ---
-
-    // 1. 文本处理与正则匹配
+    // 核心解析逻辑：分步提取，互不影响
     function processText(chunk) {
         buffer += chunk;
         const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop(); // 保留最后一行
+        buffer = lines.pop(); 
 
         lines.forEach(line => {
-            if (!line.trim()) return;
-            addLog(line);
+            if(line.length < 5) return;
+            
+            // 1. 尝试独立提取 V, I, P
+            // 只要字符串里有 V=数字 就提取，不管位置在哪
+            const vMatch = line.match(/V=\s*([\d\.]+)/);
+            const iMatch = line.match(/I=\s*([\d\.]+)/);
+            const pMatch = line.match(/P=\s*([\d\.]+)/);
+            
+            let v = null, i = null, p = null;
+            let logMsg = line.trim();
+            let isSuccess = false;
 
-            // 【关键】新正则表达式，匹配 V, I, P
-            // 格式: V=3.305 V | I=0.1052 A | P=0.347 W
-            const regex = /V=([\d\.]+)\s*V.*I=([\d\.]+)\s*A.*P=([\d\.]+)\s*W/;
-            const match = line.match(regex);
+            if (vMatch) { v = parseFloat(vMatch[1]); isSuccess = true; }
+            if (iMatch) { i = parseFloat(iMatch[1]); isSuccess = true; }
+            if (pMatch) { p = parseFloat(pMatch[1]); isSuccess = true; }
 
-            if (match) {
-                const vol = parseFloat(match[1]);
-                const cur = parseFloat(match[2]);
-                const pwr = parseFloat(match[3]); // 提取功率
-                
-                updateUI(vol, cur, pwr);
+            // 2. 如果至少提取到一个数据，就更新界面
+            if (isSuccess) {
+                updateUI(v, i, p);
+                log(logMsg + " [OK]", "log-match");
+            } else {
+                // 如果全是乱码或者没有关键字
+                log(logMsg + " [解析失败-格式不对]", "log-fail");
             }
         });
     }
 
-    // 2. 更新界面
-    function updateUI(vol, cur, pwr) {
-        const timestamp = new Date().toLocaleTimeString();
-
-        // A. 更新仪表盘
-        document.getElementById('dispVol').innerText = vol.toFixed(3) + " V";
-        document.getElementById('dispCur').innerText = cur.toFixed(4) + " A";
-        document.getElementById('dispPwr').innerText = pwr.toFixed(4) + " W";
-
-        // B. 记录历史 (CSV用)
-        historyData.push({
-            time: new Date().toISOString(),
-            voltage: vol,
-            current: cur,
-            power: pwr
-        });
-
-        // C. 更新图表
-        if (chart.data.labels.length > 200) {
-            chart.data.labels.shift();
-            chart.data.datasets.forEach(ds => ds.data.shift());
-        }
-        chart.data.labels.push(timestamp);
-        chart.data.datasets[0].data.push(vol);
-        chart.data.datasets[1].data.push(cur);
-        chart.data.datasets[2].data.push(pwr); // 推入功率数据
+    function updateUI(v, i, p) {
+        const now = new Date().toLocaleTimeString();
         
+        // 更新大字 (如果有值才更新)
+        if(v !== null) document.getElementById('valV').innerText = v.toFixed(3) + " V";
+        if(i !== null) document.getElementById('valI').innerText = i.toFixed(4) + " A";
+        if(p !== null) document.getElementById('valP').innerText = p.toFixed(4) + " W";
+
+        // 更新图表 (为保持对齐，没有的值填上一次的或0)
+        const lastV = chart.data.datasets[0].data.slice(-1)[0] || 0;
+        const lastI = chart.data.datasets[1].data.slice(-1)[0] || 0;
+        const lastP = chart.data.datasets[2].data.slice(-1)[0] || 0;
+
+        chart.data.labels.push(now);
+        chart.data.datasets[0].data.push(v !== null ? v : lastV);
+        chart.data.datasets[1].data.push(i !== null ? i : lastI);
+        chart.data.datasets[2].data.push(p !== null ? p : lastP);
+
+        if(chart.data.labels.length > 200) {
+            chart.data.labels.shift();
+            chart.data.datasets.forEach(d => d.data.shift());
+        }
         chart.update('none');
+
+        // 保存历史
+        historyData.push({t:now, v:v, i:i, p:p});
     }
 
-    // --- 功能函数 (连接、导出等) ---
-
+    // 基础功能
     async function connect() {
-        if (!navigator.serial) return alert("请使用 Chrome/Edge 浏览器");
         try {
             port = await navigator.serial.requestPort();
-            await port.open({ baudRate: parseInt(document.getElementById('baudRate').value) });
-            document.getElementById('btnConnect').style.display = 'none';
-            document.getElementById('btnDisconnect').style.display = 'inline-block';
-            keepReading = true;
-            readLoop();
-        } catch (e) { alert("连接失败: " + e); }
+            await port.open({ baudRate: parseInt(document.getElementById('baud').value) });
+            document.getElementById('btnCon').style.display='none';
+            document.getElementById('btnDis').style.display='inline-block';
+            keepReading = true; readLoop();
+        } catch(e) { alert(e); }
     }
-
+    
     async function disconnect() {
-        keepReading = false;
-        if (reader) await reader.cancel();
-        if (port) await port.close();
-        document.getElementById('btnConnect').style.display = 'inline-block';
-        document.getElementById('btnDisconnect').style.display = 'none';
+        keepReading = false; 
+        if(reader) await reader.cancel();
+        if(port) await port.close();
+        document.getElementById('btnCon').style.display='inline-block';
+        document.getElementById('btnDis').style.display='none';
     }
 
     async function readLoop() {
-        while (port.readable && keepReading) {
+        while(port.readable && keepReading) {
             reader = port.readable.getReader();
             try {
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    if (value) processText(textDecoder.decode(value));
+                while(true) {
+                    const {value, done} = await reader.read();
+                    if(done) break;
+                    if(value) processText(textDecoder.decode(value));
                 }
-            } catch (e) { console.error(e); } 
-            finally { reader.releaseLock(); }
+            } finally { reader.releaseLock(); }
         }
     }
 
     function exportCSV() {
-        if (historyData.length === 0) return alert("无数据");
-        // 增加 Power 列
-        let csv = "Time,Voltage(V),Current(A),Power(W)\n";
-        historyData.forEach(r => {
-            csv += `${r.time},${r.voltage},${r.current},${r.power}\n`;
-        });
-        const link = document.createElement("a");
-        link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
-        link.download = "power_log.csv";
-        link.click();
+        let csv = "Time,Voltage,Current,Power\n";
+        historyData.forEach(d => csv += `${d.t},${d.v||0},${d.i||0},${d.p||0}\n`);
+        const a = document.createElement('a');
+        a.href = encodeURI("data:text/csv;charset=utf-8,"+csv);
+        a.download = "data.csv"; a.click();
     }
 
-    function clearData() {
-        historyData = [];
-        chart.data.labels = [];
-        chart.data.datasets.forEach(ds => ds.data = []);
-        chart.update();
-        document.getElementById('logWindow').innerHTML = "";
-    }
-
-    function addLog(text) {
-        const win = document.getElementById('logWindow');
+    function log(msg, cls) {
         const div = document.createElement('div');
-        div.className = 'log-entry';
-        div.innerText = text;
-        if (text.includes("V=")) div.classList.add('log-ok'); 
-        win.appendChild(div);
-        if (win.childElementCount > 100) win.removeChild(win.firstChild);
-        win.scrollTop = win.scrollHeight;
+        div.innerText = msg;
+        if(cls) div.className = cls;
+        const box = document.getElementById('log');
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        if(box.childElementCount > 100) box.removeChild(box.firstChild);
     }
 </script>
 </body>
