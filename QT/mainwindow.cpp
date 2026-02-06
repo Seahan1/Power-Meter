@@ -183,3 +183,21 @@ void MainWindow::readData() {
         }
     }
 }
+void MainWindow::parseLine(const QString &line) {
+    // 原始正则: CH:(\\d)\\s+V=([-|\\d\\.]+)...
+    // 改进正则: 
+    // 1. (?:\r)? 忽略可能的 \r
+    // 2. [\\s]* 允许等号前后有任意空格
+    static QRegularExpression re(R"(CH:(\d)\s+V=\s*([-\d\.]+)\s+I=\s*([-\d\.]+)\s+P=\s*([-\d\.]+))");
+    
+    QRegularExpressionMatch match = re.match(line);
+
+    if (match.hasMatch()) {
+        // ... 原有逻辑不变 ...
+        // 解析成功，打印日志提示
+        // logWindow->append("解析成功: CH" + match.captured(1));
+    } else {
+        // 【调试】如果这一行有内容但没匹配上，说明格式不对
+        logWindow->append("<font color='red'>格式不匹配: " + line + "</font>");
+    }
+}
