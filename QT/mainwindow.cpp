@@ -19,14 +19,23 @@ void MainWindow::setupUI() {
 
     // --- 1. Header (连接区域) ---
     QHBoxLayout *header = new QHBoxLayout();
-    portSelector = new QComboBox();
-    portSelector->setFixedWidth(120);
-    updatePortList(); // 初始化时扫描一次串口
+    // 1. 创建下拉框
+portSelector = new QComboBox(this);
+portSelector->setFixedWidth(120);
 
-    header->addWidget(new QLabel("选择端口:"));
-    header->addWidget(portSelector);
-    header->addWidget(btnConnect);
+// 2. 创建刷新按钮 (新增)
+QPushButton *btnRefresh = new QPushButton("刷新", this);
+btnRefresh->setFixedWidth(50);
+connect(btnRefresh, &QPushButton::clicked, this, &MainWindow::updatePortList);
 
+// 3. 布局添加
+header->addWidget(new QLabel("端口:", this));
+header->addWidget(portSelector);
+header->addWidget(btnRefresh); // 加入刷新按钮
+header->addWidget(btnConnect);
+
+// 4. 【关键】初始化时立刻扫描一次！
+this->updatePortList();
     // --- 2. Main Body (左侧示波器 + 右侧仪表盘) ---
     QHBoxLayout *mainBody = new QHBoxLayout();
     
@@ -97,10 +106,21 @@ void MainWindow::setupUI() {
 #include <QtSerialPort/QSerialPortInfo>
 
 void MainWindow::updatePortList() {
+    QString current = portSelector->currentText(); // 记住当前选的
     portSelector->clear();
+    
     const auto infos = QSerialPortInfo::availablePorts();
     for (const QSerialPortInfo &info : infos) {
-        portSelector->addItem(info.portName());
+        // 显示 端口号 + 描述，方便你确认是不是你的设备
+        QString label = info.portName() + " (" + info.description() + ")";
+        portSelector->addItem(label, info.portName()); // itemData 存纯端口号
+    }
+    
+    // 调试打印：看看 Qt 到底识别到了什么
+    if (infos.isEmpty()) {
+        logWindow->append("未检测到任何串口设备！");
+    } else {
+        logWindow->append(QString("检测到 %1 个设备").arg(infos.count()));
     }
 }
 
@@ -114,7 +134,7 @@ void MainWindow::toggleSerial() {
         logWindow->append("<font color='gray'>[系统] 串口已断开</font>");
     } else {
         // 如果是关闭状态，则尝试打开
-        QString portName = portSelector->currentText();
+        QString portName = portSelector->currentData().toString();
         if (portName.isEmpty()) {
             QMessageBox::warning(this, "错误", "未检测到可用串口！");
             return;
@@ -138,17 +158,28 @@ void MainWindow::toggleSerial() {
     }
 }
 void MainWindow::readData() {
-    // 将所有新数据读入缓冲区
-    serialBuffer += serial->readAll();
+    QByteArray data = serial->readAll();
+    serialBuffer += data;
 
-    // 只有当检测到换行符时才处理（保证数据的完整行）
+    // 【调试代码】只要收到字节，就打印到日志窗口！
+    // 这样你就能确认：1. 连接通没通；2. 收到的格式到底是什么
+    if (!data.isEmpty()) {
+        // 为了防止刷屏太快，只打印前20个字符示例，或者全部打印
+        // logWindow->append("RX: " + QString::fromUtf8(data)); 
+    }
+
     while (serialBuffer.contains('\n')) {
         int pos = serialBuffer.indexOf('\n');
+        // 处理 \r\n 或 \n
         QString line = QString::fromUtf8(serialBuffer.left(pos)).trimmed();
         serialBuffer.remove(0, pos + 1);
 
         if (!line.isEmpty()) {
-            parseLine(line); // 这里会调用之前的正则表达式解析逻辑
+            // 【关键】打印解析前的原始行，看看长什么样
+            // 如果这里有输出，说明连接成功，是正则写错了
+            // logWindow->append("Raw Line: " + line); 
+            
+            parseLine(line);
         }
     }
 }
