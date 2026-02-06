@@ -19,6 +19,7 @@ public:
 private slots:
     void toggleSerial();
     void readData();
+    void updatePortList();
     void refreshUI();
     void exportCSV();
     void clearAll();
@@ -27,6 +28,7 @@ private:
     void setupUI();
     void parseLine(const QString &line);
 
+    QComboBox *portSelector;
     QSerialPort *serial;
     QByteArray serialBuffer;
     std::vector<PowerData> buf1, buf2;
