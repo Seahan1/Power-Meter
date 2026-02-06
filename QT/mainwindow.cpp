@@ -19,17 +19,13 @@ void MainWindow::setupUI() {
 
     // --- 1. Header (连接区域) ---
     QHBoxLayout *header = new QHBoxLayout();
-    QLabel *title = new QLabel("ProPower <small style='color:#aaa;'>Dual Channel</small>");
-    title->setStyleSheet("font-size: 18px; font-weight: bold;");
-    
-    btnConnect = new QPushButton("连接设备");
-    btnConnect->setStyleSheet("background-color: #00e676; color: #000;"); // 绿色按钮
-    connect(btnConnect, &QPushButton::clicked, this, &MainWindow::toggleSerial);
-    
-    header->addWidget(title);
-    header->addStretch();
+    portSelector = new QComboBox();
+    portSelector->setFixedWidth(120);
+    updatePortList(); // 初始化时扫描一次串口
+
+    header->addWidget(new QLabel("选择端口:"));
+    header->addWidget(portSelector);
     header->addWidget(btnConnect);
-    rootLayout->addLayout(header);
 
     // --- 2. Main Body (左侧示波器 + 右侧仪表盘) ---
     QHBoxLayout *mainBody = new QHBoxLayout();
@@ -97,4 +93,62 @@ void MainWindow::setupUI() {
     mainBody->addLayout(chartsColumn, 3);
     mainBody->addWidget(sidePanel);
     rootLayout->addLayout(mainBody);
+}
+#include <QtSerialPort/QSerialPortInfo>
+
+void MainWindow::updatePortList() {
+    portSelector->clear();
+    const auto infos = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo &info : infos) {
+        portSelector->addItem(info.portName());
+    }
+}
+
+void MainWindow::toggleSerial() {
+    if (serial->isOpen()) {
+        // 如果已经打开，则执行关闭
+        serial->close();
+        btnConnect->setText("连接设备");
+        btnConnect->setStyleSheet("background-color: #00e676; color: #000;");
+        portSelector->setEnabled(true);
+        logWindow->append("<font color='gray'>[系统] 串口已断开</font>");
+    } else {
+        // 如果是关闭状态，则尝试打开
+        QString portName = portSelector->currentText();
+        if (portName.isEmpty()) {
+            QMessageBox::warning(this, "错误", "未检测到可用串口！");
+            return;
+        }
+
+        serial->setPortName(portName);
+        serial->setBaudRate(QSerialPort::Baud115200); // 需与下位机一致
+        serial->setDataBits(QSerialPort::Data8);
+        serial->setParity(QSerialPort::NoParity);
+        serial->setStopBits(QSerialPort::OneStop);
+        serial->setFlowControl(QSerialPort::NoFlowControl);
+
+        if (serial->open(QIODevice::ReadWrite)) {
+            btnConnect->setText("断开连接");
+            btnConnect->setStyleSheet("background-color: #d32f2f; color: #fff;");
+            portSelector->setEnabled(false);
+            logWindow->append(QString("<font color='#00e676'>[系统] 成功连接至 %1</font>").arg(portName));
+        } else {
+            QMessageBox::critical(this, "错误", "无法打开串口：" + serial->errorString());
+        }
+    }
+}
+void MainWindow::readData() {
+    // 将所有新数据读入缓冲区
+    serialBuffer += serial->readAll();
+
+    // 只有当检测到换行符时才处理（保证数据的完整行）
+    while (serialBuffer.contains('\n')) {
+        int pos = serialBuffer.indexOf('\n');
+        QString line = QString::fromUtf8(serialBuffer.left(pos)).trimmed();
+        serialBuffer.remove(0, pos + 1);
+
+        if (!line.isEmpty()) {
+            parseLine(line); // 这里会调用之前的正则表达式解析逻辑
+        }
+    }
 }
