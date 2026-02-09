@@ -1,7 +1,26 @@
+#include "mainwindow.h"
+#include <QtWidgets>
+#include <QTimer>
+#include <QRegularExpression>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QSerialPort>
+#include <QSerialPortInfo>
+
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
+    setupUI();
+    serial = new QSerialPort(this);
+    connect(serial, &QSerialPort::readyRead, this, &MainWindow::readData);
+
+    QTimer *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &MainWindow::refreshUI);
+    timer->start(16);
+}
+
 void MainWindow::setupUI() {
     this->setWindowTitle("ProPower Dual Channel Monitor");
     this->resize(1100, 750);
-    
+
     // 全局样式表：模拟 HTML 的深色背景和扁平化风格
     this->setStyleSheet(
         "QMainWindow { background-color: #121212; }"
@@ -11,7 +30,7 @@ void MainWindow::setupUI() {
         "QPushButton:hover { background-color: #444; }"
         "QTextEdit { background-color: #000; border: 1px solid #333; border-radius: 8px; font-family: 'Courier New'; }"
         "QSlider::handle:horizontal { background: #00e676; width: 18px; }"
-    );
+        );
 
     QWidget *central = new QWidget(this);
     setCentralWidget(central);
@@ -20,30 +39,36 @@ void MainWindow::setupUI() {
     // --- 1. Header (连接区域) ---
     QHBoxLayout *header = new QHBoxLayout();
     // 1. 创建下拉框
-portSelector = new QComboBox(this);
-portSelector->setFixedWidth(120);
+    portSelector = new QComboBox(this);
+    portSelector->setFixedWidth(120);
 
-// 2. 创建刷新按钮 (新增)
-QPushButton *btnRefresh = new QPushButton("刷新", this);
-btnRefresh->setFixedWidth(50);
-connect(btnRefresh, &QPushButton::clicked, this, &MainWindow::updatePortList);
+    //连接按钮
+    btnConnect = new QPushButton("连接设备", this);
+    btnConnect->setStyleSheet("background-color: #00e676; color: #000;");
+    // 绑定点击事件到 toggleSerial 函数
+    connect(btnConnect, &QPushButton::clicked, this, &MainWindow::toggleSerial);
 
-// 3. 布局添加
-header->addWidget(new QLabel("端口:", this));
-header->addWidget(portSelector);
-header->addWidget(btnRefresh); // 加入刷新按钮
-header->addWidget(btnConnect);
 
-// 4. 【关键】初始化时立刻扫描一次！
-this->updatePortList();
+    // 刷新按钮
+    QPushButton *btnRefresh = new QPushButton("刷新", this);
+    btnRefresh->setFixedWidth(50);
+    connect(btnRefresh, &QPushButton::clicked, this, &MainWindow::updatePortList);
+
+    // 布局添加
+    header->addWidget(new QLabel("端口:", this));
+    header->addWidget(portSelector);
+    header->addWidget(btnRefresh); // 加入刷新按钮
+    header->addWidget(btnConnect);
+
+
     // --- 2. Main Body (左侧示波器 + 右侧仪表盘) ---
     QHBoxLayout *mainBody = new QHBoxLayout();
-    
+
     // 左侧：示波器堆叠
     QVBoxLayout *chartsColumn = new QVBoxLayout();
     scope1 = new Oscilloscope(QColor("#fdd835"), QColor("#ff9800"), QColor("#ff5252"), this);
     scope2 = new Oscilloscope(QColor("#00e5ff"), QColor("#2979ff"), QColor("#d05ce3"), this);
-    
+
     chartsColumn->addWidget(new QLabel("CHANNEL 1 LIVE"), 0, Qt::AlignLeft);
     chartsColumn->addWidget(scope1, 1);
     chartsColumn->addWidget(new QLabel("CHANNEL 2 LIVE"), 0, Qt::AlignLeft);
@@ -102,20 +127,20 @@ this->updatePortList();
     mainBody->addLayout(chartsColumn, 3);
     mainBody->addWidget(sidePanel);
     rootLayout->addLayout(mainBody);
+    this->updatePortList();
 }
-#include <QtSerialPort/QSerialPortInfo>
 
 void MainWindow::updatePortList() {
     QString current = portSelector->currentText(); // 记住当前选的
     portSelector->clear();
-    
+
     const auto infos = QSerialPortInfo::availablePorts();
     for (const QSerialPortInfo &info : infos) {
         // 显示 端口号 + 描述，方便你确认是不是你的设备
         QString label = info.portName() + " (" + info.description() + ")";
         portSelector->addItem(label, info.portName()); // itemData 存纯端口号
     }
-    
+
     // 调试打印：看看 Qt 到底识别到了什么
     if (infos.isEmpty()) {
         logWindow->append("未检测到任何串口设备！");
@@ -165,7 +190,7 @@ void MainWindow::readData() {
     // 这样你就能确认：1. 连接通没通；2. 收到的格式到底是什么
     if (!data.isEmpty()) {
         // 为了防止刷屏太快，只打印前20个字符示例，或者全部打印
-        // logWindow->append("RX: " + QString::fromUtf8(data)); 
+        // logWindow->append("RX: " + QString::fromUtf8(data));
     }
 
     while (serialBuffer.contains('\n')) {
@@ -177,27 +202,80 @@ void MainWindow::readData() {
         if (!line.isEmpty()) {
             // 【关键】打印解析前的原始行，看看长什么样
             // 如果这里有输出，说明连接成功，是正则写错了
-            // logWindow->append("Raw Line: " + line); 
-            
+            logWindow->append("Raw Line: " + line);
+
             parseLine(line);
         }
     }
 }
-void MainWindow::parseLine(const QString &line) {
-    // 原始正则: CH:(\\d)\\s+V=([-|\\d\\.]+)...
-    // 改进正则: 
-    // 1. (?:\r)? 忽略可能的 \r
-    // 2. [\\s]* 允许等号前后有任意空格
-    static QRegularExpression re(R"(CH:(\d)\s+V=\s*([-\d\.]+)\s+I=\s*([-\d\.]+)\s+P=\s*([-\d\.]+))");
-    
-    QRegularExpressionMatch match = re.match(line);
 
-    if (match.hasMatch()) {
-        // ... 原有逻辑不变 ...
-        // 解析成功，打印日志提示
-        // logWindow->append("解析成功: CH" + match.captured(1));
-    } else {
-        // 【调试】如果这一行有内容但没匹配上，说明格式不对
-        logWindow->append("<font color='red'>格式不匹配: " + line + "</font>");
+void MainWindow::parseLine(const QString &line) {
+    // 忽略一些启动时的干扰信息
+    if (line.startsWith("Found") || line.contains("Addr")) {
+        return;
     }
+    // 正则表达式：匹配带单位的数据
+    static QRegularExpression re(R"(CH:(\d)\s+V=\s*([-\d\.]+)\s+V\s+\|\s+I=\s*([-\d\.]+)\s+A\s+\|\s+P=\s*([-\d\.]+)\s+W)");
+    QRegularExpressionMatch match = re.match(line);
+    if (match.hasMatch()) {
+        bool ok;
+        int ch = match.captured(1).toInt(&ok);
+        double v = match.captured(2).toDouble();       // 电压保持 V
+        double i = match.captured(3).toDouble() * 1000.0; // 【修改】 A -> mA
+        double p = match.captured(4).toDouble() * 1000.0; // 【修改】 W -> mW
+        if (ok) {
+            PowerData pt;
+            pt.v = v;
+            pt.i = i; // 存入的是 mA
+            pt.p = p; // 存入的是 mW
+            if (ch == 1) {
+                buf1.push_back(pt);
+                // 【修改】标签显示单位改为 mA 和 mW
+                ch1V->setText(QString::number(v, 'f', 3) + " V");
+                ch1I->setText(QString::number(i, 'f', 1) + " mA");
+                ch1P->setText(QString::number(p, 'f', 1) + " mW");
+            } else if (ch == 2) {
+                buf2.push_back(pt);
+                ch2V->setText(QString::number(v, 'f', 3) + " V");
+                ch2I->setText(QString::number(i, 'f', 1) + " mA");
+                ch2P->setText(QString::number(p, 'f', 1) + " mW");
+            }
+            // 【修改点2】 std::vector 不支持 removeFirst()，要用 erase
+            if (buf1.size() > 10000) {
+                buf1.erase(buf1.begin());
+            }
+            if (buf2.size() > 10000) {
+                buf2.erase(buf2.begin());
+            }
+        }
+    } else {
+        // 调试用：如果不想看“忽略数据”的刷屏，可以注释掉下面这行
+        // if (!line.isEmpty() && line.length() > 10) logWindow->append("忽略: " + line);
+    }
+}
+
+
+
+void MainWindow::refreshUI() {
+    scope1->setData(&buf1, offset, zoom);
+    scope2->setData(&buf2, offset, zoom);
+}
+
+void MainWindow::exportCSV() {
+    QString path = QFileDialog::getSaveFileName(this, "保存 CSV", "", "CSV Files (*.csv)");
+    if (path.isEmpty()) return;
+    QFile file(path);
+    if (file.open(QIODevice::WriteOnly)) {
+        QTextStream out(&file);
+        out << "Index,CH1_V,CH1_I,CH1_P,CH2_V,CH2_I,CH2_P\n";
+        int len = qMax(buf1.size(), buf2.size());
+        for (int i=0; i<len; ++i) {
+            out << i << "," << (i<buf1.size()?buf1[i].v:0) << "," << (i<buf1.size()?buf1[i].i:0) << "," << (i<buf1.size()?buf1[i].p:0) << ","
+                << (i<buf2.size()?buf2[i].v:0) << "," << (i<buf2.size()?buf2[i].i:0) << "," << (i<buf2.size()?buf2[i].p:0) << "\n";
+        }
+    }
+}
+
+void MainWindow::clearAll() {
+    buf1.clear(); buf2.clear(); logWindow->clear();
 }
