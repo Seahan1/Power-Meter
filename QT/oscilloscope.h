@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <vector>
+#include <QWheelEvent>
 
 struct PowerData {
     double v; // 电压 (V)
@@ -15,17 +16,19 @@ class Oscilloscope : public QWidget {
 public:
     explicit Oscilloscope(QColor vCol, QColor iCol, QColor pCol, QWidget *parent = nullptr);
     void setData(const std::vector<PowerData> *data, int offset, double zoom);
-    
+
     bool showV = true;
     bool showI = true;
     bool showP = true;
 
 protected:
     void paintEvent(QPaintEvent *event) override;
-
+    void wheelEvent(QWheelEvent *event) override;
+private:
 private:
     void drawTrace(class QPainter *p, double PowerData::*member, double range, QColor color, bool visible);
-
+    // 辅助函数：自适应量程
+    double calculateVisibleMax(double PowerData::*member);
     const std::vector<PowerData> *m_data = nullptr;
     int m_offset = 0;
     double m_zoom = 1.0;
