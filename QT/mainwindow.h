@@ -5,6 +5,7 @@
 #include <QtSerialPort/QSerialPort>
 #include <vector>
 #include "oscilloscope.h"
+#include <QComboBox>
 
 class QLabel;
 class QTextEdit;
