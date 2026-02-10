@@ -11,6 +11,8 @@ class QLabel;
 class QTextEdit;
 class QPushButton;
 class QSlider;
+class QThread;
+class SerialWorker;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -38,6 +40,10 @@ private:
     QTextEdit *logWindow;
     QPushButton *btnConnect;
     QSlider *slider;
+    QThread* ioThread = nullptr;
+    SerialWorker* worker = nullptr;
+    bool connected = false;
+
     double zoom = 1.0;
     int offset = 0;
 };

@@ -9,8 +9,29 @@
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setupUI();
-    serial = new QSerialPort(this);
-    connect(serial, &QSerialPort::readyRead, this, &MainWindow::readData);
+    //serial = new QSerialPort(this);
+    //connect(serial, &QSerialPort::readyRead, this, &MainWindow::readData);
+    
+    //新增线程与worker
+    qRegisterMetaType<ParsedSample>("ParsedSample");
+
+    ioThread = new QThread(this);
+    worker = new SerialWorker();
+    worker->moveToThread(ioThread);
+
+    connect(ioThread, &QThread::finished, worker, &QObject::deleteLater);
+
+    // worker -> UI
+    connect(worker, &SerialWorker::sampleReady, this, &MainWindow::onSampleReady, Qt::QueuedConnection);
+    connect(worker, &SerialWorker::logLine, this, [this](const QString& s){
+        logWindow->append(s);
+    }, Qt::QueuedConnection);
+    connect(worker, &SerialWorker::errorOccured, this, [this](const QString& s){
+        QMessageBox::critical(this, "串口错误", s);
+    }, Qt::QueuedConnection);
+
+    ioThread->start();
+    /////
 
     QTimer *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &MainWindow::refreshUI);
@@ -149,39 +170,71 @@ void MainWindow::updatePortList() {
     }
 }
 
-void MainWindow::toggleSerial() {
-    if (serial->isOpen()) {
-        // 如果已经打开，则执行关闭
-        serial->close();
+void MainWindow::toggleSerial()
+{
+    if (connected) {
+        // 关闭串口（发给 worker 线程）
+        QMetaObject::invokeMethod(worker, "closePort", Qt::QueuedConnection);
+
+        connected = false;
         btnConnect->setText("连接设备");
         btnConnect->setStyleSheet("background-color: #00e676; color: #000;");
         portSelector->setEnabled(true);
         logWindow->append("<font color='gray'>[系统] 串口已断开</font>");
-    } else {
-        // 如果是关闭状态，则尝试打开
+    } 
+    else {
         QString portName = portSelector->currentData().toString();
         if (portName.isEmpty()) {
             QMessageBox::warning(this, "错误", "未检测到可用串口！");
             return;
         }
 
-        serial->setPortName(portName);
-        serial->setBaudRate(QSerialPort::Baud115200); // 需与下位机一致
-        serial->setDataBits(QSerialPort::Data8);
-        serial->setParity(QSerialPort::NoParity);
-        serial->setStopBits(QSerialPort::OneStop);
-        serial->setFlowControl(QSerialPort::NoFlowControl);
+        // 打开串口（发给 worker 线程）
+        QMetaObject::invokeMethod(
+            worker,
+            "openPort",
+            Qt::QueuedConnection,
+            Q_ARG(QString, portName),
+            Q_ARG(int, 115200)
+        );
 
-        if (serial->open(QIODevice::ReadWrite)) {
-            btnConnect->setText("断开连接");
-            btnConnect->setStyleSheet("background-color: #d32f2f; color: #fff;");
-            portSelector->setEnabled(false);
-            logWindow->append(QString("<font color='#00e676'>[系统] 成功连接至 %1</font>").arg(portName));
-        } else {
-            QMessageBox::critical(this, "错误", "无法打开串口：" + serial->errorString());
-        }
+        connected = true;
+        btnConnect->setText("断开连接");
+        btnConnect->setStyleSheet("background-color: #d32f2f; color: #fff;");
+        portSelector->setEnabled(false);
+        logWindow->append(
+            QString("<font color='#00e676'>[系统] 连接请求已发送：%1</font>").arg(portName)
+        );
     }
 }
+
+
+void MainWindow::onSampleReady(const ParsedSample& s) {
+    PowerData pt;
+    pt.v = s.v;
+    pt.i = s.i;
+    pt.p = s.p;
+
+    if (s.ch == 1) {
+        buf1.push_back(pt);
+        ch1V->setText(QString::number(pt.v, 'f', 3) + " V");
+        ch1I->setText(QString::number(pt.i, 'f', 1) + " mA");
+        ch1P->setText(QString::number(pt.p, 'f', 1) + " mW");
+    } else {
+        buf2.push_back(pt);
+        ch2V->setText(QString::number(pt.v, 'f', 3) + " V");
+        ch2I->setText(QString::number(pt.i, 'f', 1) + " mA");
+        ch2P->setText(QString::number(pt.p, 'f', 1) + " mW");
+    }
+
+    // 批量裁剪（或你后续改 deque/环形）
+    static const int kMax=10000, kMargin=2000;
+    if ((int)buf1.size() > kMax + kMargin) buf1.erase(buf1.begin(), buf1.end() - kMax);
+    if ((int)buf2.size() > kMax + kMargin) buf2.erase(buf2.begin(), buf2.end() - kMax);
+
+    dirty = true;
+}
+/*
 void MainWindow::readData() {
     QByteArray data = serial->readAll();
     serialBuffer += data;
@@ -253,7 +306,7 @@ void MainWindow::parseLine(const QString &line) {
         // if (!line.isEmpty() && line.length() > 10) logWindow->append("忽略: " + line);
     }
 }
-
+*/
 
 
 void MainWindow::refreshUI() {
