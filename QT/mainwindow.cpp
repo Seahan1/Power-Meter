@@ -295,7 +295,7 @@ void MainWindow::parseLine(const QString &line) {
             }
             // 【修改点2】 std::vector 不支持 removeFirst()，要用 erase
             if (buf1.size() > 10000) {
-                buf1.erase(buf1.begin());
+                buf1.erase(buf1.begin());∏
             }
             if (buf2.size() > 10000) {
                 buf2.erase(buf2.begin());
