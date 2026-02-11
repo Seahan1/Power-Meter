@@ -28,9 +28,12 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 private:
 private:
+    double calculateVisibleRms(double PowerData::*member) const;
+
     void drawTrace(class QPainter *p, double PowerData::*member, double range, QColor color, bool visible);
     // 辅助函数：自适应量程
-    double calculateVisibleMax(double PowerData::*member);
+    double calculateVisibleMax(double PowerData::*member) const;
+
     const std::vector<PowerData> *m_data = nullptr;
     int m_offset = 0;
     double m_zoom = 1.0;

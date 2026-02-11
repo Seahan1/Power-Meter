@@ -59,16 +59,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress) {
-        for (int i = 0; i < kMaxChannels; ++i) {
-            if (watched == m_overviewScopes[i]) {
-                setSelectedChannel(i);
+        // 尝试从 watched 或其 parent 链上找 chIndex
+        QObject* obj = watched;
+        while (obj) {
+            QVariant v = obj->property("chIndex");
+            if (v.isValid()) {
+                int idx = v.toInt();
+                setSelectedChannel(idx);
                 if (m_tabs) m_tabs->setCurrentIndex(1); // Focus tab
                 return true;
             }
+            obj = obj->parent();
         }
     }
     return QMainWindow::eventFilter(watched, event);
 }
+
 
 void MainWindow::setupUI() {
     setWindowTitle("ProPower Multi-Channel Monitor");
@@ -105,8 +111,9 @@ void MainWindow::setupUI() {
     header->addWidget(new QLabel("端口:", this));
     header->addWidget(portSelector);
     header->addWidget(btnRefresh);
-    header->addStretch(1);
     header->addWidget(btnConnect);
+    header->addStretch(1);
+
 
     rootLayout->addLayout(header);
 
@@ -129,14 +136,22 @@ void MainWindow::setupUI() {
         cellLayout->setContentsMargins(0,0,0,0);
         cellLayout->setSpacing(4);
 
-        auto *title = new QLabel(QString("CHANNEL %1").arg(i+1), this);
-        title->setStyleSheet("font-weight:bold; color:#bdbdbd;");
-        cellLayout->addWidget(title, 0, Qt::AlignLeft);
+auto *title = new QLabel(QString("CHANNEL %1").arg(i+1), this);
+title->setStyleSheet("font-weight:bold; color:#bdbdbd;");
+title->setProperty("chIndex", i);
+title->installEventFilter(this);
+cellLayout->addWidget(title, 0, Qt::AlignLeft);
 
-        m_overviewScopes[i] = new Oscilloscope(kChColorsV[i], kChColorsI[i], kChColorsP[i], this);
-        m_overviewScopes[i]->setMinimumHeight(160);
-        m_overviewScopes[i]->installEventFilter(this);
-        cellLayout->addWidget(m_overviewScopes[i], 1);
+m_overviewScopes[i] = new Oscilloscope(kChColorsV[i], kChColorsI[i], kChColorsP[i], this);
+m_overviewScopes[i]->setMinimumHeight(160);
+m_overviewScopes[i]->setProperty("chIndex", i);
+m_overviewScopes[i]->installEventFilter(this);
+cell->setProperty("chIndex", i);
+cell->installEventFilter(this);
+
+cellLayout->addWidget(m_overviewScopes[i], 1);
+
+ 
 
         int row = i / 2; // 3 rows, 2 cols
         int col = i % 2;
@@ -180,36 +195,46 @@ void MainWindow::setupUI() {
     scroll->setFrameShape(QFrame::NoFrame);
 
     QWidget *cardsHost = new QWidget(this);
-    auto *cardsLayout = new QVBoxLayout(cardsHost);
-    cardsLayout->setContentsMargins(0,0,0,0);
-    cardsLayout->setSpacing(10);
+    auto *cardsLayout = new QGridLayout(cardsHost);
+cardsLayout->setContentsMargins(0,0,0,0);
+cardsLayout->setHorizontalSpacing(8);
+cardsLayout->setVerticalSpacing(8);
 
-    for (int i = 0; i < kMaxChannels; ++i) {
-        auto *card = new QGroupBox(QString("● CHANNEL %1").arg(i+1), this);
-        card->setStyleSheet(QString("QGroupBox { border-left: 3px solid %1; }").arg(kChColorsV[i].name()));
+for (int i = 0; i < kMaxChannels; ++i) {
+    auto *card = new QGroupBox(QString("● CH%1").arg(i+1), this);
+    card->setStyleSheet(QString("QGroupBox { border-left: 3px solid %1; }")
+                        .arg(kChColorsV[i].name()));
 
-        auto *vbox = new QVBoxLayout(card);
+    auto *vbox = new QVBoxLayout(card);
+    vbox->setSpacing(2);
 
-        m_chV[i] = new QLabel("--.--- V", this);
-        m_chI[i] = new QLabel("--.-- mA", this);
-        m_chP[i] = new QLabel("--.-- mW", this);
+    m_chV[i] = new QLabel("--.--- V", this);
+    m_chI[i] = new QLabel("--.-- mA", this);
+    m_chP[i] = new QLabel("--.-- mW", this);
 
-        m_chV[i]->setStyleSheet(QString("font-size: 18px; color: %1;").arg(kChColorsV[i].name()));
-        m_chI[i]->setStyleSheet(QString("font-size: 18px; color: %1;").arg(kChColorsI[i].name()));
-        m_chP[i]->setStyleSheet(QString("font-size: 18px; color: %1;").arg(kChColorsP[i].name()));
+    // 字体小一点
+    m_chV[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsV[i].name()));
+    m_chI[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsI[i].name()));
+    m_chP[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsP[i].name()));
 
-        vbox->addWidget(new QLabel("VOLT", this)); vbox->addWidget(m_chV[i]);
-        vbox->addWidget(new QLabel("CURR", this)); vbox->addWidget(m_chI[i]);
-        vbox->addWidget(new QLabel("PWR", this));  vbox->addWidget(m_chP[i]);
+    vbox->addWidget(m_chV[i]);
+    vbox->addWidget(m_chI[i]);
+    vbox->addWidget(m_chP[i]);
 
-        auto *btnFocus = new QPushButton("Focus", this);
-        connect(btnFocus, &QPushButton::clicked, this, [this, i](){
-            setSelectedChannel(i);
-            if (m_tabs) m_tabs->setCurrentIndex(1);
-        });
-        vbox->addWidget(btnFocus);
+    // Focus 按钮做成小图标/小按钮（可选）
+    auto *btnFocus = new QPushButton("Focus", this);
+    btnFocus->setFixedHeight(24);
+    connect(btnFocus, &QPushButton::clicked, this, [this, i](){
+        setSelectedChannel(i);
+        if (m_tabs) m_tabs->setCurrentIndex(1);
+    });
+    vbox->addWidget(btnFocus);
 
-        cardsLayout->addWidget(card);
+    int row = i / 2;
+    int col = i % 2;
+    cardsLayout->addWidget(card, row, col);
+}
+
     }
     cardsLayout->addStretch(1);
     scroll->setWidget(cardsHost);
@@ -217,7 +242,7 @@ void MainWindow::setupUI() {
     sideLayout->addWidget(scroll, 3);
 
     // ---- Stats panel
-    auto *statsBox = new QGroupBox("统计与能量（最近 N 秒）", this);
+    auto *statsBox = new QGroupBox("统计（最近 N 秒）", this);
     auto *statsLayout = new QGridLayout(statsBox);
 
     m_statsChSelector = new QComboBox(this);
@@ -265,9 +290,16 @@ void MainWindow::setupUI() {
 
     // ---- Log window
     logWindow = new QTextEdit(this);
+    logWindow->setReadOnly(true);
     logWindow->setPlaceholderText("系统就绪...");
     logWindow->document()->setMaximumBlockCount(300);
-    sideLayout->addWidget(logWindow, 2);
+
+    auto* dock = new QDockWidget("Output", this);
+    dock->setWidget(logWindow);
+    dock->setAllowedAreas(Qt::BottomDockWidgetArea);
+    addDockWidget(Qt::BottomDockWidgetArea, dock);
+    dock->setMinimumHeight(140);
+
 
     // ---- Bottom buttons
     auto *btnExport = new QPushButton("导出 CSV", this);

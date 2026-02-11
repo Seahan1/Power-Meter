@@ -15,7 +15,7 @@ Oscilloscope::Oscilloscope(QColor vCol, QColor iCol, QColor pCol, QWidget *paren
 void Oscilloscope::setData(const std::vector<PowerData> *data, int offset, double zoom) {
     m_data = data;
     m_offset = offset;
-    //m_zoom = zoom;
+    //m_zoom = zoom;acul
 }
 // 【新增】处理鼠标滚轮事件
 void Oscilloscope::wheelEvent(QWheelEvent *event) {
@@ -45,23 +45,26 @@ void Oscilloscope::wheelEvent(QWheelEvent *event) {
     update();
 }
 // 【新增函数】计算当前视图内数据的最大值
-double Oscilloscope::calculateVisibleMax(double PowerData::*member) {
-    if (!m_data || m_data->empty()) return 10.0;
-    double maxVal = 0.0;
-    int rightIdx = m_data->size() - 1 - m_offset;
-    // 使用当前的 m_zoom 计算屏幕内能容纳多少个点
-    // 如果 m_zoom 很大，i * m_zoom 增长很快，循环次数其实变少了（因为很快超出 width）
-    // 为了准确遍历屏幕上的像素，我们还是按像素循环
-    for (int i = 0; i < width(); ++i) {
-        double dataIndexStep = i / m_zoom; // 计算当前像素对应第几个数据点
-        int idx = rightIdx - (int)dataIndexStep;
+double Oscilloscope::calculateVisibleRms(double PowerData::*member) const {
+    if (!m_data || m_data->empty()) return 0.0;
+
+    double sumSq = 0.0;
+    int n = 0;
+    int rightIdx = (int)m_data->size() - 1 - m_offset;
+
+    for (int px = 0; px < width(); ++px) {
+        int dataDist = (int)(px / m_zoom);
+        int idx = rightIdx - dataDist;
         if (idx < 0) break;
-        double val = std::abs((*m_data)[idx].*member);
-        if (val > maxVal) maxVal = val;
+
+        double v = (*m_data)[idx].*member;
+        sumSq += v * v;
+        n++;
     }
-    if (maxVal < 0.1) maxVal = 1.0;
-    return maxVal * 1.2;
+
+    return (n > 0) ? std::sqrt(sumSq / n) : 0.0;
 }
+
 void Oscilloscope::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -78,10 +81,18 @@ void Oscilloscope::paintEvent(QPaintEvent *) {
     drawTrace(&painter, &PowerData::i, rangeI, colorI, showI);
     drawTrace(&painter, &PowerData::v, rangeV, colorV, showV);
     // 显示当前量程和缩放倍率
+    double rmsV = calculateVisibleRms(&PowerData::v);
+    double rmsI = calculateVisibleRms(&PowerData::i);
+    double rmsP = calculateVisibleRms(&PowerData::p);
+
     painter.setPen(Qt::white);
-    painter.drawText(10, 20, QString("V Scale: %1 V").arg(rangeV, 0, 'f', 1));
-    painter.drawText(10, 35, QString("I Scale: %1 mA").arg(rangeI, 0, 'f', 1));
-    painter.drawText(10, 50, QString("P Scale: %1 mW").arg(rangeP, 0, 'f', 1));
+    painter.drawText(10, 20,
+        QString("RMS: V=%1 V  I=%2 mA  P=%3 mW")
+            .arg(rmsV, 0, 'f', 3)
+            .arg(rmsI, 0, 'f', 1)
+            .arg(rmsP, 0, 'f', 1)
+);
+
     // 显示横轴缩放信息
     painter.drawText(width() - 100, 20, QString("Zoom: x%1").arg(m_zoom, 0, 'f', 1));
 }
