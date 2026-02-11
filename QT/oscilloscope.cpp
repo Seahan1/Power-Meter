@@ -16,7 +16,6 @@ void Oscilloscope::setData(const std::vector<PowerData> *data, int offset, doubl
     m_data = data;
     m_offset = offset;
     //m_zoom = zoom;
-    update();
 }
 // 【新增】处理鼠标滚轮事件
 void Oscilloscope::wheelEvent(QWheelEvent *event) {

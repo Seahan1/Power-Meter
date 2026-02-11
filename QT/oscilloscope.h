@@ -2,6 +2,7 @@
 #define OSCILLOSCOPE_H
 
 #include <QWidget>
+#include <QtGlobal>
 #include <vector>
 #include <QWheelEvent>
 
@@ -9,6 +10,7 @@ struct PowerData {
     double v; // 电压 (V)
     double i; // 电流 (mA)
     double p; // 功率 (mW)
+    quint64 t_ms = 0; // 时间戳 (ms, 上位机)
 };
 
 class Oscilloscope : public QWidget {
