@@ -88,7 +88,7 @@ void MainWindow::setupUI() {
         "QPushButton:hover { background-color: #444; }"
         "QTextEdit { background-color: #000; border: 1px solid #333; border-radius: 8px; font-family: 'Courier New'; }"
         "QSlider::handle:horizontal { background: #00e676; width: 18px; }"
-    );
+        );
 
     QWidget *central = new QWidget(this);
     setCentralWidget(central);
@@ -136,22 +136,22 @@ void MainWindow::setupUI() {
         cellLayout->setContentsMargins(0,0,0,0);
         cellLayout->setSpacing(4);
 
-auto *title = new QLabel(QString("CHANNEL %1").arg(i+1), this);
-title->setStyleSheet("font-weight:bold; color:#bdbdbd;");
-title->setProperty("chIndex", i);
-title->installEventFilter(this);
-cellLayout->addWidget(title, 0, Qt::AlignLeft);
+        auto *title = new QLabel(QString("CHANNEL %1").arg(i+1), this);
+        title->setStyleSheet("font-weight:bold; color:#bdbdbd;");
+        title->setProperty("chIndex", i);
+        title->installEventFilter(this);
+        cellLayout->addWidget(title, 0, Qt::AlignLeft);
 
-m_overviewScopes[i] = new Oscilloscope(kChColorsV[i], kChColorsI[i], kChColorsP[i], this);
-m_overviewScopes[i]->setMinimumHeight(160);
-m_overviewScopes[i]->setProperty("chIndex", i);
-m_overviewScopes[i]->installEventFilter(this);
-cell->setProperty("chIndex", i);
-cell->installEventFilter(this);
+        m_overviewScopes[i] = new Oscilloscope(kChColorsV[i], kChColorsI[i], kChColorsP[i], this);
+        m_overviewScopes[i]->setMinimumHeight(160);
+        m_overviewScopes[i]->setProperty("chIndex", i);
+        m_overviewScopes[i]->installEventFilter(this);
+        cell->setProperty("chIndex", i);
+        cell->installEventFilter(this);
 
-cellLayout->addWidget(m_overviewScopes[i], 1);
+        cellLayout->addWidget(m_overviewScopes[i], 1);
 
- 
+
 
         int row = i / 2; // 3 rows, 2 cols
         int col = i % 2;
@@ -196,47 +196,47 @@ cellLayout->addWidget(m_overviewScopes[i], 1);
 
     QWidget *cardsHost = new QWidget(this);
     auto *cardsLayout = new QGridLayout(cardsHost);
-cardsLayout->setContentsMargins(0,0,0,0);
-cardsLayout->setHorizontalSpacing(8);
-cardsLayout->setVerticalSpacing(8);
+    cardsLayout->setContentsMargins(0,0,0,0);
+    cardsLayout->setHorizontalSpacing(8);
+    cardsLayout->setVerticalSpacing(8);
 
-for (int i = 0; i < kMaxChannels; ++i) {
-    auto *card = new QGroupBox(QString("● CH%1").arg(i+1), this);
-    card->setStyleSheet(QString("QGroupBox { border-left: 3px solid %1; }")
-                        .arg(kChColorsV[i].name()));
+    for (int i = 0; i < kMaxChannels; ++i) {
+        auto *card = new QGroupBox(QString("● CH%1").arg(i+1), this);
+        card->setStyleSheet(QString("QGroupBox { border-left: 3px solid %1; }")
+                                .arg(kChColorsV[i].name()));
 
-    auto *vbox = new QVBoxLayout(card);
-    vbox->setSpacing(2);
+        auto *vbox = new QVBoxLayout(card);
+        vbox->setSpacing(2);
 
-    m_chV[i] = new QLabel("--.--- V", this);
-    m_chI[i] = new QLabel("--.-- mA", this);
-    m_chP[i] = new QLabel("--.-- mW", this);
+        m_chV[i] = new QLabel("--.--- V", this);
+        m_chI[i] = new QLabel("--.-- mA", this);
+        m_chP[i] = new QLabel("--.-- mW", this);
 
-    // 字体小一点
-    m_chV[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsV[i].name()));
-    m_chI[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsI[i].name()));
-    m_chP[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsP[i].name()));
+        // 字体小一点
+        m_chV[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsV[i].name()));
+        m_chI[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsI[i].name()));
+        m_chP[i]->setStyleSheet(QString("font-size: 15px; color: %1;").arg(kChColorsP[i].name()));
 
-    vbox->addWidget(m_chV[i]);
-    vbox->addWidget(m_chI[i]);
-    vbox->addWidget(m_chP[i]);
+        vbox->addWidget(m_chV[i]);
+        vbox->addWidget(m_chI[i]);
+        vbox->addWidget(m_chP[i]);
 
-    // Focus 按钮做成小图标/小按钮（可选）
-    auto *btnFocus = new QPushButton("Focus", this);
-    btnFocus->setFixedHeight(24);
-    connect(btnFocus, &QPushButton::clicked, this, [this, i](){
-        setSelectedChannel(i);
-        if (m_tabs) m_tabs->setCurrentIndex(1);
-    });
-    vbox->addWidget(btnFocus);
+        // Focus 按钮做成小图标/小按钮（可选）
+        auto *btnFocus = new QPushButton("Focus", this);
+        btnFocus->setFixedHeight(24);
+        connect(btnFocus, &QPushButton::clicked, this, [this, i](){
+            setSelectedChannel(i);
+            if (m_tabs) m_tabs->setCurrentIndex(1);
+        });
+        vbox->addWidget(btnFocus);
 
-    int row = i / 2;
-    int col = i % 2;
-    cardsLayout->addWidget(card, row, col);
-}
-
+        int row = i / 2;
+        int col = i % 2;
+        cardsLayout->addWidget(card, row, col);
     }
-    cardsLayout->addStretch(1);
+
+
+    cardsLayout->setRowStretch(cardsLayout->rowCount(), 1);
     scroll->setWidget(cardsHost);
 
     sideLayout->addWidget(scroll, 3);
@@ -248,76 +248,76 @@ for (int i = 0; i < kMaxChannels; ++i) {
     m_statsChSelector = new QComboBox(this);
     for (int i = 0; i < kMaxChannels; ++i) m_statsChSelector->addItem(QString("CH%1").arg(i+1), i);
     connect(m_statsChSelector, &QComboBox::currentIndexChanged, this, [this](int){
-        dirty = true;
-    });
+    dirty = true;
+});
 
-    m_statsWindowSec = new QSpinBox(this);
-    m_statsWindowSec->setRange(1, 300);
-    m_statsWindowSec->setValue(10);
-    connect(m_statsWindowSec, qOverload<int>(&QSpinBox::valueChanged), this, [this](int){
-        dirty = true;
-    });
+m_statsWindowSec = new QSpinBox(this);
+m_statsWindowSec->setRange(1, 300);
+m_statsWindowSec->setValue(10);
+connect(m_statsWindowSec, qOverload<int>(&QSpinBox::valueChanged), this, [this](int){
+    dirty = true;
+});
 
-    statsLayout->addWidget(new QLabel("通道", this), 0, 0);
-    statsLayout->addWidget(m_statsChSelector, 0, 1);
-    statsLayout->addWidget(new QLabel("窗口(s)", this), 0, 2);
-    statsLayout->addWidget(m_statsWindowSec, 0, 3);
+statsLayout->addWidget(new QLabel("通道", this), 0, 0);
+statsLayout->addWidget(m_statsChSelector, 0, 1);
+statsLayout->addWidget(new QLabel("窗口(s)", this), 0, 2);
+statsLayout->addWidget(m_statsWindowSec, 0, 3);
 
-    // header row
-    QStringList cols = {"Min", "Max", "Avg", "RMS"};
-    statsLayout->addWidget(new QLabel("", this), 1, 0);
-    for (int c=0; c<4; ++c) statsLayout->addWidget(new QLabel(cols[c], this), 1, c+1);
+// header row
+QStringList cols = {"Min", "Max", "Avg", "RMS"};
+statsLayout->addWidget(new QLabel("", this), 1, 0);
+for (int c=0; c<4; ++c) statsLayout->addWidget(new QLabel(cols[c], this), 1, c+1);
 
-    QStringList rows = {"V (V)", "I (mA)", "P (mW)"};
-    for (int r=0; r<3; ++r) {
-        statsLayout->addWidget(new QLabel(rows[r], this), r+2, 0);
-        for (int c=0; c<4; ++c) {
-            m_statLabel[r][c] = new QLabel("--", this);
-            m_statLabel[r][c]->setStyleSheet("color:#e0e0e0;");
-            statsLayout->addWidget(m_statLabel[r][c], r+2, c+1);
-        }
+QStringList rows = {"V (V)", "I (mA)", "P (mW)"};
+for (int r=0; r<3; ++r) {
+    statsLayout->addWidget(new QLabel(rows[r], this), r+2, 0);
+    for (int c=0; c<4; ++c) {
+        m_statLabel[r][c] = new QLabel("--", this);
+        m_statLabel[r][c]->setStyleSheet("color:#e0e0e0;");
+        statsLayout->addWidget(m_statLabel[r][c], r+2, c+1);
     }
+}
 
-    // Energy
-    m_energyMWh = new QLabel("E: -- mWh", this);
-    m_energyWh  = new QLabel("E: -- Wh", this);
-    m_energyMWh->setStyleSheet("font-weight:bold; color:#00e676;");
-    m_energyWh->setStyleSheet("font-weight:bold; color:#00e676;");
-    statsLayout->addWidget(m_energyMWh, 5, 0, 1, 2);
-    statsLayout->addWidget(m_energyWh, 5, 2, 1, 2);
+// Energy
+m_energyMWh = new QLabel("E: -- mWh", this);
+m_energyWh  = new QLabel("E: -- Wh", this);
+m_energyMWh->setStyleSheet("font-weight:bold; color:#00e676;");
+m_energyWh->setStyleSheet("font-weight:bold; color:#00e676;");
+statsLayout->addWidget(m_energyMWh, 5, 0, 1, 2);
+statsLayout->addWidget(m_energyWh, 5, 2, 1, 2);
 
-    sideLayout->addWidget(statsBox, 0);
+sideLayout->addWidget(statsBox, 0);
 
-    // ---- Log window
-    logWindow = new QTextEdit(this);
-    logWindow->setReadOnly(true);
-    logWindow->setPlaceholderText("系统就绪...");
-    logWindow->document()->setMaximumBlockCount(300);
+// ---- Log window
+logWindow = new QTextEdit(this);
+logWindow->setReadOnly(true);
+logWindow->setPlaceholderText("系统就绪...");
+logWindow->document()->setMaximumBlockCount(300);
 
-    auto* dock = new QDockWidget("Output", this);
-    dock->setWidget(logWindow);
-    dock->setAllowedAreas(Qt::BottomDockWidgetArea);
-    addDockWidget(Qt::BottomDockWidgetArea, dock);
-    dock->setMinimumHeight(140);
+auto* dock = new QDockWidget("Output", this);
+dock->setWidget(logWindow);
+dock->setAllowedAreas(Qt::BottomDockWidgetArea);
+addDockWidget(Qt::BottomDockWidgetArea, dock);
+dock->setMinimumHeight(140);
 
 
-    // ---- Bottom buttons
-    auto *btnExport = new QPushButton("导出 CSV", this);
-    connect(btnExport, &QPushButton::clicked, this, &MainWindow::exportCSV);
+// ---- Bottom buttons
+auto *btnExport = new QPushButton("导出 CSV", this);
+connect(btnExport, &QPushButton::clicked, this, &MainWindow::exportCSV);
 
-    auto *btnClear = new QPushButton("清空", this);
-    connect(btnClear, &QPushButton::clicked, this, &MainWindow::clearAll);
+auto *btnClear = new QPushButton("清空", this);
+connect(btnClear, &QPushButton::clicked, this, &MainWindow::clearAll);
 
-    sideLayout->addWidget(btnExport);
-    sideLayout->addWidget(btnClear);
+sideLayout->addWidget(btnExport);
+sideLayout->addWidget(btnClear);
 
-    // assemble
-    mainBody->addWidget(m_tabs, 3);
-    mainBody->addWidget(sidePanel, 1);
-    rootLayout->addLayout(mainBody);
+// assemble
+mainBody->addWidget(m_tabs, 3);
+mainBody->addWidget(sidePanel, 1);
+rootLayout->addLayout(mainBody);
 
-    updatePortList();
-    setSelectedChannel(0);
+updatePortList();
+setSelectedChannel(0);
 }
 
 void MainWindow::updatePortList() {

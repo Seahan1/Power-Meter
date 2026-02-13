@@ -32,7 +32,7 @@ private:
 
     void drawTrace(class QPainter *p, double PowerData::*member, double range, QColor color, bool visible);
     // 辅助函数：自适应量程
-    double calculateVisibleMax(double PowerData::*member) const;
+    double calculateVisibleMax(double PowerData::*member) ;
 
     const std::vector<PowerData> *m_data = nullptr;
     int m_offset = 0;

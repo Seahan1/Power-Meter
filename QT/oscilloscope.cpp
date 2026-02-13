@@ -44,7 +44,25 @@ void Oscilloscope::wheelEvent(QWheelEvent *event) {
     // 触发重绘
     update();
 }
+
 // 【新增函数】计算当前视图内数据的最大值
+double Oscilloscope::calculateVisibleMax(double PowerData::*member) {
+    if (!m_data || m_data->empty()) return 10.0;
+    double maxVal = 0.0;
+    int rightIdx = m_data->size() - 1 - m_offset;
+    // 使用当前的 m_zoom 计算屏幕内能容纳多少个点
+    // 如果 m_zoom 很大，i * m_zoom 增长很快，循环次数其实变少了（因为很快超出 width）
+    // 为了准确遍历屏幕上的像素，我们还是按像素循环
+    for (int i = 0; i < width(); ++i) {
+        double dataIndexStep = i / m_zoom; // 计算当前像素对应第几个数据点
+        int idx = rightIdx - (int)dataIndexStep;
+        if(idx<0) break;
+        double val = std::abs((*m_data)[idx].*member);
+        if(val>maxVal) maxVal = val;
+    }
+    if(maxVal<0.1) maxVal = 1.0;
+    return maxVal * 1.2;
+}
 double Oscilloscope::calculateVisibleRms(double PowerData::*member) const {
     if (!m_data || m_data->empty()) return 0.0;
 
@@ -87,11 +105,11 @@ void Oscilloscope::paintEvent(QPaintEvent *) {
 
     painter.setPen(Qt::white);
     painter.drawText(10, 20,
-        QString("RMS: V=%1 V  I=%2 mA  P=%3 mW")
-            .arg(rmsV, 0, 'f', 3)
-            .arg(rmsI, 0, 'f', 1)
-            .arg(rmsP, 0, 'f', 1)
-);
+                     QString("RMS: V=%1 V  I=%2 mA  P=%3 mW")
+                         .arg(rmsV, 0, 'f', 3)
+                         .arg(rmsI, 0, 'f', 1)
+                         .arg(rmsP, 0, 'f', 1)
+                     );
 
     // 显示横轴缩放信息
     painter.drawText(width() - 100, 20, QString("Zoom: x%1").arg(m_zoom, 0, 'f', 1));
